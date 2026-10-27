@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="bs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mjerenje programa</title>
+<meta name="description" content="V04, mjerenje programa: red, get(i) u petlji i prostor liste, izmjereno u Release i Debug buildu.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Raspored: mini-prezentacija od 10 slajdova; jedan slajd na ekranu (strelice), ili svi jedan ispod
+   drugog (način „Čitanje“). Papir je svijetao, svijet i putanje su na tamnoj podlozi kao u NetLogu. */
+:root {
+  --papir: #eef1f4; --list: #ffffff; --tinta: #17212b; --siva: #56636f; --linija: #d3dae1;
+  --narandza: #b9531a; --narandza-meko: #f6dfd0; --margina: #e5a3a3; --svijet: #0b0d10;
+  --za: #345da9; --protiv: #d73229; --neodlucni: #8d8d8d;
+  --f-naslov: "Bitter", "Georgia", "Cambria", serif;
+  --f-tekst: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "IBM Plex Mono", "Cascadia Mono", Consolas, "Courier New", monospace;
+  --t-0: 0.83rem; --t-1: 1rem; --t-2: 1.17rem; --t-3: 1.5rem; --t-4: 2.2rem; --t-5: 3.1rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --papir: #10161c; --list: #18212a; --tinta: #e3e9ee; --siva: #9ba8b4; --linija: #2a3540;
+    --narandza: #f0894a; --narandza-meko: #3a2416; --margina: #6b3535; --za: #5b86d6; --protiv: #e5574e; --neodlucni: #9a9a9a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --papir: #10161c; --list: #18212a; --tinta: #e3e9ee; --siva: #9ba8b4; --linija: #2a3540;
+  --narandza: #f0894a; --narandza-meko: #3a2416; --margina: #6b3535; --za: #5b86d6; --protiv: #e5574e; --neodlucni: #9a9a9a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { font-size: 18px; }
+@media (max-width: 600px) { html { font-size: 16px; } }
+body { margin: 0; background: var(--papir); color: var(--tinta); font-family: var(--f-tekst); line-height: 1.55; }
+[hidden] { display: none !important; }
+a { color: var(--narandza); text-underline-offset: 0.15em; }
+:focus-visible { outline: 3px solid var(--narandza); outline-offset: 2px; }
+h1, h2, h3 { font-family: var(--f-naslov); text-wrap: balance; line-height: 1.18; margin: 0; }
+p { margin: 0; }
+code { font-family: var(--f-mono); font-size: 0.9em; }
+p code, li code, td code { background: var(--narandza-meko); padding: 0.05em 0.3em; border-radius: 3px; }
+.okvir { max-width: 1200px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.oznaka { font-family: var(--f-mono); font-size: var(--t-0); letter-spacing: 0.08em; text-transform: uppercase; color: var(--narandza); font-weight: 500; }
+.siva { color: var(--siva); }
+.mala { font-size: var(--t-0); }
+
+/* traka na vrhu */
+.vrh { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--papir); border-bottom: 1px solid var(--linija); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--papir); }
+.vrh .okvir { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; padding-block: 0.55rem; flex-wrap: wrap; }
+.vrh b { font-family: var(--f-naslov); font-weight: 700; }
+.nacin { display: flex; gap: 0.3rem; }
+button { font: 500 var(--t-0) var(--f-mono); border-radius: 4px; padding: 0.4rem 0.8rem; cursor: pointer;
+  border: 1px solid var(--narandza); background: transparent; color: var(--narandza); }
+button[aria-pressed="true"], button.glavno { background: var(--narandza); color: var(--list); }
+button:disabled { opacity: 0.45; cursor: default; }
+
+/* slajdovi */
+.slajd { padding-block: 2rem 6rem; scroll-margin-top: 3.4rem; }
+main.prezentacija .slajd { display: none; min-height: calc(100svh - 3.2rem); }
+main.prezentacija .slajd.aktivan { display: block; }
+main.citanje .slajd { border-bottom: 1px solid var(--linija); padding-block: 2.5rem; }
+.glava { display: grid; gap: 0.35rem; margin-bottom: 1.4rem; }
+.glava h2 { font-size: var(--t-4); max-width: 30ch; }
+.glava .podnaslov { font-size: var(--t-2); color: var(--siva); max-width: 52rem; }
+.dvije { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2rem; align-items: start; }
+.dvije > * { min-width: 0; }
+@media (max-width: 900px) { .dvije { grid-template-columns: minmax(0, 1fr); } }
+.tekst { display: grid; gap: 1rem; }
+.tekst ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+.panel { background: var(--list); border: 1px solid var(--linija); border-radius: 6px; padding: 1rem; }
+.pitanje { background: var(--narandza-meko); border-radius: 4px; padding: 0.9rem 1rem; }
+.pitanje h3 { font-size: var(--t-1); margin-bottom: 0.25rem; }
+
+/* naslovni slajd */
+.naslovni { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 2.4rem; align-items: center; padding-top: 1rem; }
+.naslovni > * { min-width: 0; }
+.naslovni h1 { font-size: var(--t-5); letter-spacing: -0.01em; margin: 0.4rem 0 0.9rem; }
+.naslovni .teza { font-size: var(--t-3); font-family: var(--f-naslov); line-height: 1.3; }
+.naslovni .uvod { margin-top: 1rem; color: var(--siva); }
+@media (max-width: 900px) { .naslovni { grid-template-columns: minmax(0, 1fr); } }
+
+/* list papira: pravilo za model na papiru */
+.papir {
+  margin: 0; background-color: var(--list); border: 1px solid var(--linija); border-radius: 4px;
+  padding: 1rem 1.2rem 1.2rem 2.4rem; position: relative; line-height: 1.75rem;
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.75rem - 1px), var(--linija) calc(1.75rem - 1px), var(--linija) 1.75rem);
+  background-position: 0 2.55rem;
+}
+.papir::before { content: ""; position: absolute; left: 1.5rem; top: 0; bottom: 0; width: 2px; background: var(--margina); }
+.papir figcaption { font-family: var(--f-mono); font-size: var(--t-0); color: var(--siva); letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.75rem; }
+.papir p, .papir li { font-family: var(--f-naslov); font-size: 1.08rem; }
+.papir ul { list-style: none; margin: 0; padding: 0 0 0 1.2rem; }
+.papir li::before { content: "→ "; color: var(--narandza); font-family: var(--f-tekst); }
+.papir b { color: var(--narandza); }
+
+/* kartice (pojava, sastavni dijelovi, koraci) */
+.kartice { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); }
+.kartica { background: var(--list); border: 1px solid var(--linija); border-radius: 6px; padding: 1rem; display: grid; gap: 0.6rem; align-content: start; }
+.kartica h3 { font-size: var(--t-2); }
+.kartica svg { width: 100%; height: auto; display: block; }
+.kartica ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.25rem; }
+.kartica .kod-cip { font-family: var(--f-mono); font-size: 0.78rem; color: var(--siva); border-top: 1px dashed var(--linija); padding-top: 0.5rem; }
+.korak-broj { font-family: var(--f-mono); font-weight: 500; color: var(--narandza); }
+
+/* SVG ilustracije: boje iz tokena */
+.il-osa { stroke: var(--siva); stroke-width: 1.5; }
+.il-tekst { fill: var(--siva); font: 13px var(--f-mono); }
+.il-tekst-veci { fill: var(--tinta); font: 600 15px var(--f-tekst); }
+.il-za { fill: var(--za); } .il-protiv { fill: var(--protiv); } .il-neo { fill: var(--neodlucni); }
+.il-prozor { fill: var(--narandza-meko); stroke: var(--narandza); stroke-dasharray: 4 3; }
+.il-strelica { stroke: var(--narandza); stroke-width: 2.5; fill: none; }
+.il-vrh { fill: var(--narandza); }
+.il-domet { fill: none; stroke: var(--narandza); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.il-svijet { fill: var(--svijet); }
+.il-kuca { fill: #eded2f; }
+.il-precrtano { stroke: var(--protiv); stroke-width: 3; }
+.il-oblak { fill: var(--list); stroke: var(--siva); stroke-width: 1.2; }
+
+/* kalkulator jednog susreta */
+.kalk { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1.5rem; }
+.kalk > * { min-width: 0; }
+@media (max-width: 900px) { .kalk { grid-template-columns: minmax(0, 1fr); } }
+.klizaci { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem 1.2rem; }
+@media (max-width: 520px) { .klizaci { grid-template-columns: minmax(0, 1fr); } }
+.klizac { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.klizac label { font-family: var(--f-mono); font-size: var(--t-0); }
+.klizac output { font-family: var(--f-mono); font-size: var(--t-0); font-variant-numeric: tabular-nums; }
+.klizac input { grid-column: 1 / -1; width: 100%; accent-color: var(--narandza); }
+.racun { font-family: var(--f-mono); font-size: 0.86rem; line-height: 1.7; background: var(--papir); border-radius: 4px; padding: 0.7rem 0.9rem; overflow-x: auto; white-space: pre; }
+.racun .da { color: var(--za); font-weight: 600; } .racun .ne { color: var(--protiv); font-weight: 600; }
+.dugmad { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+
+/* putanje stava */
+.putanje-okvir { background: var(--svijet); border-radius: 6px; padding: 0.6rem; }
+canvas.putanje { width: 100%; aspect-ratio: 2 / 1; display: block; }
+.izbor { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+.izbor button { border-color: var(--linija); color: var(--siva); }
+.izbor button[aria-pressed="true"] { border-color: var(--narandza); color: var(--list); background: var(--narandza); }
+.legenda { display: flex; gap: 1rem; flex-wrap: wrap; font-size: var(--t-0); color: var(--siva); margin-top: 0.4rem; }
+.legenda i { display: inline-block; width: 0.8em; height: 0.8em; border-radius: 50%; margin-right: 0.35em; vertical-align: -0.05em; }
+.potpis { font-size: var(--t-0); color: var(--siva); margin-top: 0.4rem; }
+.potpis b { color: var(--tinta); font-weight: 600; }
+
+/* grafikoni iz mjerenja */
+svg.grafik { width: 100%; height: auto; display: block; overflow: visible; }
+.g-mreza { stroke: var(--linija); stroke-width: 1; } .g-os { stroke: var(--siva); stroke-width: 1; }
+.g-oznaka { fill: var(--siva); font: 12px var(--f-mono); } .g-naslov-x { fill: var(--siva); font: 12px var(--f-tekst); }
+.g-vrijednost { fill: var(--tinta); font: 500 12px var(--f-mono); }
+.g-raspon { stroke: var(--narandza); stroke-width: 3; stroke-linecap: round; opacity: 0.35; }
+.g-tacka { fill: var(--narandza); }
+.g-ref { stroke: var(--siva); stroke-width: 1.2; stroke-dasharray: 4 4; }
+.g-ref-tekst { fill: var(--siva); font: italic 12px var(--f-tekst); }
+
+/* kod */
+.kodovi { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; }
+.kodovi > * { min-width: 0; }
+@media (max-width: 900px) { .kodovi { grid-template-columns: minmax(0, 1fr); } }
+.kod { background: var(--list); border: 1px solid var(--linija); border-radius: 6px; overflow: hidden; }
+.kod .jezik { font-family: var(--f-mono); font-size: var(--t-0); padding: 0.4rem 0.8rem; border-bottom: 1px solid var(--linija); color: var(--siva); }
+.kod pre { margin: 0; padding: 0.8rem; overflow-x: auto; }
+.kod code { font-size: 14px; line-height: 1.55; white-space: pre; }
+.kod .kom { color: var(--siva); font-style: italic; }
+.kod mark { background: var(--narandza-meko); color: inherit; border-radius: 2px; padding: 0 0.15em; }
+.kod mark b { color: var(--narandza); font-family: var(--f-tekst); }
+.oblacici { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 1rem; margin-top: 1rem; }
+.oblacici div { border-left: 3px solid var(--narandza); padding-left: 0.8rem; }
+.oblacici b.br { font-family: var(--f-mono); color: var(--narandza); margin-right: 0.3rem; }
+
+/* probaj */
+.veze { display: grid; gap: 0.7rem; }
+.veze a { display: block; text-decoration: none; background: var(--list); border: 1px solid var(--linija); border-radius: 6px; padding: 0.8rem 1rem; color: var(--tinta); }
+.veze a:hover { border-color: var(--narandza); }
+.veze a b { color: var(--narandza); }
+.veze a span { display: block; color: var(--siva); font-size: var(--t-0); }
+.literatura { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.35rem; font-size: 0.92rem; }
+
+/* donja navigacija */
+.navigacija { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--papir); border-top: 1px solid var(--linija);
+  padding-bottom: env(safe-area-inset-bottom, 0px); }
+.navigacija .okvir { display: flex; align-items: center; gap: 0.8rem; padding-block: 0.5rem; }
+.navigacija .naslov-slajda { flex: 1; min-width: 0; font-size: var(--t-0); color: var(--siva); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.navigacija .broj { font-family: var(--f-mono); font-size: var(--t-0); font-variant-numeric: tabular-nums; }
+.napredak { position: absolute; top: -1px; left: 0; height: 2px; background: var(--narandza); transition: width 0.25s; }
+main.citanje ~ .navigacija { display: none; }
+@media (prefers-reduced-motion: reduce) { .napredak { transition: none; } }
+
+</style>
+<style>
+/* boje implementacija (iste vrijednosti kao u V05 pr-izmjereno: plava = niz, zelena = čvorovi, žuta = std) */
+:root { --s-niz: #2a78d6; --s-pov: #1baf7a; --s-std: #eda100; --s-pod: #56636f; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --s-niz: #3987e5; --s-pov: #199e70; --s-std: #c98500; --s-pod: #9ba8b4; }
+}
+:root[data-theme="dark"] { --s-niz: #3987e5; --s-pov: #199e70; --s-std: #c98500; --s-pod: #9ba8b4; }
+.c-niz { --c: var(--s-niz); } .c-pov { --c: var(--s-pov); } .c-std { --c: var(--s-std); } .c-pod { --c: var(--s-pod); }
+.g-linija { fill: none; stroke: var(--c); stroke-width: 2; stroke-linejoin: round; }
+.g-pojas { fill: var(--c); opacity: 0.2; stroke: none; }
+.g-tck { fill: var(--c); stroke: var(--list); stroke-width: 2; }
+.g-ime { fill: var(--tinta); font: 500 12px var(--f-tekst); }
+i.boja { display: inline-block; width: 0.8em; height: 0.8em; border-radius: 50%; margin-right: 0.4em; vertical-align: -0.05em;
+  background: var(--c); box-shadow: 0 0 0 1.5px var(--list); }
+table.mjere { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+table.mjere th, table.mjere td { border-bottom: 1px solid var(--linija); padding: 0.28rem 0.35rem; text-align: right; font-variant-numeric: tabular-nums; }
+table.mjere th { font-weight: 600; font-size: var(--t-0); color: var(--siva); vertical-align: bottom; }
+table.mjere th:first-child, table.mjere td:first-child { text-align: left; }
+table.mjere td b { color: var(--tinta); }
+table.opis td, table.opis th { text-align: left; vertical-align: top; font-variant-numeric: normal; }
+@media (max-width: 520px) { table.mjere { font-size: 0.74rem; } table.mjere th, table.mjere td { padding: 0.25rem 0.2rem; } }
+/* trake: medijan (stub) i raspon min-max (tanka linija) */
+.grupe { display: grid; gap: 1.3rem; }
+.grupa { display: grid; gap: 0.7rem; }
+.grupa-naslov { font-family: var(--f-mono); font-size: var(--t-0); color: var(--siva); border-bottom: 1px solid var(--linija); padding-bottom: 0.2rem; }
+.traka-ime { font-weight: 600; font-size: 0.92rem; }
+.traka-ime .mjesto { font-family: var(--f-mono); color: var(--narandza); margin-right: 0.2rem; }
+.traka-ime .opis-impl { font-weight: 400; color: var(--siva); font-size: var(--t-0); }
+.traka { position: relative; height: 1.3rem; margin: 0.25rem 0; background: var(--papir); border-radius: 4px; overflow: hidden; }
+.traka .stub { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c); border-radius: 4px 0 0 4px; }
+.traka .raspon { position: absolute; top: 25%; height: 50%; box-sizing: border-box; border-left: 2px solid var(--tinta); border-right: 2px solid var(--tinta);
+  background: linear-gradient(var(--tinta), var(--tinta)) center / 100% 2px no-repeat; }
+.traka-tekst { font-family: var(--f-mono); font-size: 0.78rem; color: var(--siva); font-variant-numeric: tabular-nums; }
+.traka-tekst b { color: var(--tinta); font-weight: 500; }
+/* trake prostora (segmenti) */
+.prostor-traka { display: flex; height: 1.5rem; margin: 0.25rem 0; background: var(--papir); border-radius: 4px; overflow: hidden; }
+.prostor-traka span { display: block; height: 100%; }
+.seg-pun { background: var(--c); }
+.seg-pola { background: var(--c); opacity: 0.5; }
+.seg-prazno { background: repeating-linear-gradient(135deg, var(--c) 0 3px, transparent 3px 8px); opacity: 0.55; }
+.nepoznato { display: inline-block; font-family: var(--f-mono); font-size: 0.74rem; color: var(--siva); border: 1.5px dashed var(--siva);
+  border-radius: 4px; padding: 0 0.35rem; margin-left: 0.3rem; }
+.leg-kv { display: inline-block; width: 0.9em; height: 0.9em; border-radius: 2px; margin-right: 0.35em; vertical-align: -0.1em; }
+.brojke { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.8rem; }
+.brojka { background: var(--list); border: 1px solid var(--linija); border-radius: 6px; padding: 0.7rem 0.9rem; }
+.brojka .vr { font-family: var(--f-naslov); font-size: var(--t-3); font-weight: 700; color: var(--c); line-height: 1.2; font-variant-numeric: tabular-nums; }
+.brojka .ime { font-size: var(--t-0); color: var(--siva); }
+.formula { font-family: var(--f-mono); font-size: 0.86rem; line-height: 1.75; background: var(--papir); border-radius: 4px; padding: 0.6rem 0.8rem; overflow-x: auto; }
+.citat { font-family: var(--f-naslov); font-size: var(--t-2); border-left: 3px solid var(--narandza); padding-left: 0.8rem; }
+.citat span { display: block; font-family: var(--f-tekst); font-size: var(--t-0); color: var(--siva); margin-top: 0.2rem; }
+.kod code { tab-size: 4; -moz-tab-size: 4; }
+details { background: var(--list); border: 1px solid var(--linija); border-radius: 6px; padding: 0.7rem 1rem; }
+details summary { cursor: pointer; font-weight: 600; color: var(--narandza); }
+details[open] summary { margin-bottom: 0.4rem; }
+.pitanja { display: grid; gap: 1rem; }
+.pitanja h3 { font-size: var(--t-2); margin-bottom: 0.4rem; }
+.oznaka-obj { font-family: var(--f-mono); font-size: var(--t-0); color: var(--siva); text-transform: uppercase; letter-spacing: 0.06em; }
+.kontrole { display: flex; gap: 0.4rem 1.2rem; flex-wrap: wrap; align-items: baseline; }
+.kontrole .izbor { margin-bottom: 0.6rem; }
+.tekst { grid-template-columns: minmax(0, 1fr); }
+.panel.tabela { overflow-x: auto; }
+@media (max-width: 520px) { .panel.tabela { padding: 0.6rem; } #t-get th, #t-get td { padding: 0.25rem 0.1rem; } }
+.kontrole .natpis { font-size: var(--t-0); color: var(--siva); margin-right: 0.2rem; align-self: center; }
+</style>
+</head>
+<body>
+
+<header class="vrh">
+  <div class="okvir">
+    <span><span class="oznaka">SPA · V04</span> &nbsp;<b>Mjerenje programa</b></span>
+    <div class="nacin" role="group" aria-label="Način prikaza">
+      <button type="button" id="nacin-prezentacija" aria-pressed="true">Prezentacija</button>
+      <button type="button" id="nacin-citanje" aria-pressed="false">Čitanje</button>
+    </div>
+  </div>
+</header>
+
+<main class="prezentacija" id="slajdovi">
+
+<!-- 1 ============================================================ -->
+<section class="slajd" id="s1" data-naslov="Analiza i mjerenje">
+  <div class="okvir">
+    <div class="glava">
+      <span class="oznaka">Strukture podataka i algoritmi · vježbe 4 · mjerenje programa</span>
+      <h1 style="font-size:clamp(1.9rem, 8vw, var(--t-5))">Mjerenje programa i šta sve utiče na izmjereno vrijeme</h1>
+      <p class="podnaslov" id="t-uvod"></p>
+    </div>
+    <div class="dvije">
+      <div class="tekst">
+        <div class="panel">
+          <table class="mjere opis">
+            <tr><th></th><th>Analiza koda (a priori)</th><th>Mjerenje (a posteriori)</th></tr>
+            <tr><td>Šta se analizira</td><td>algoritam</td><td>program (implementacija algoritma)</td></tr>
+            <tr><td>Zavisi od jezika i računara</td><td>ne</td><td>da</td></tr>
+            <tr><td>Rezultat</td><td>funkcija T(n) ili S(n)</td><td>milisekunde, megabajti</td></tr>
+            <tr><td>Alat</td><td>brojanje koraka na papiru</td><td>mjerenje u kodu, profiler</td></tr>
+          </table>
+        </div>
+        <p class="citat">„Analiza je aproksimacija i ne zamjenjuje profilisanje.“<span>Predavanje</span></p>
+        <div class="kartice">
+          <div class="kartica"><span class="korak-broj">Sat</span>
+            <p><code>steady_clock</code> mjeri vrijeme između dva poziva <code>now()</code>. Ne skače kad se promijeni sat računara.</p></div>
+          <div class="kartica"><span class="korak-broj">Ponavljanja</span>
+            <p id="t-ponavljanja"></p></div>
+          <div class="kartica"><span class="korak-broj">Build</span>
+            <p id="t-build"></p></div>
+          <div class="kartica"><span class="korak-broj">Rezultat se koristi</span>
+            <p>Zbir se dodaje u <code>volatile</code> varijablu. Petlju čiji se rezultat nigdje ne koristi optimizator u Release buildu smije izbaciti, pa bi se mjerilo prazno.</p></div>
+        </div>
+      </div>
+      <div class="tekst">
+        <div class="kod"><div class="jezik">Stoperica.h (projekat vježbi, doslovno)</div><pre><code id="kod-stoperica"></code></pre></div>
+        <div class="kod"><div class="jezik">v04_mjerenje.cpp: red sa n elemenata (prelomljeno u redove)</div><pre><code><span class="kom">volatile long long ponor = 0; // rezultat se koristi, pa ga optimizator ne izbaci</span>
+
+mjeri([&amp;] {
+    RedSekv&lt;int&gt; r(10);
+    for (int i = 0; i &lt; n; i++) r.dodaj(i);
+    long long s = 0;
+    for (int i = 0; i &lt; n; i++) s += r.ukloni();
+    ponor += s;
+}, P, s1, m1, x1);   <span class="kom">// P ponavljanja: medijan, min, max</span></code></pre></div>
+        <p class="mala siva">Program mjerenja ima svoju funkciju <code>mjeri</code>, istu kao <code>medijanMs</code>, koja uz medijan vraća i najmanju i najveću vrijednost.
+          Mjere se stvarne klase s vježbi V01–V03 (<code>ListaSekv</code>, <code>ListaPov</code>, <code>RedSekv</code>, <code>RedPov</code>) i <code>std::queue</code>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 2 ============================================================ -->
+<section class="slajd" id="s2" data-naslov="Red, tri implementacije">
+  <div class="okvir">
+    <div class="glava">
+      <span class="oznaka">Izmjereno · red</span>
+      <h2>Red, tri implementacije: build mijenja i poredak, ne samo brzinu</h2>
+      <p class="podnaslov" id="t-red-pod"></p>
+    </div>
+    <div class="dvije">
+      <div>
+        <div class="izbor" id="izbor-build-red" role="group" aria-label="Build"></div>
+        <div class="panel interaktivno"><div class="grupe" id="trake-red" aria-live="polite"></div></div>
+        <p class="potpis">Broj ispred imena je mjesto po medijanu (1 = najbrže). Svaka grupa ima svoju skalu.</p>
+      </div>
+      <div class="tekst">
+        <div class="pitanje"><h3>Poredak</h3><p id="t-red-poredak"></p></div>
+        <div class="panel tabela"><p class="mala siva" style="margin-bottom:0.4rem">Medijan vremena (ms) u oba builda</p>
+          <table class="mjere" id="t-red"></table></div>
+        <p class="mala"><span class="oznaka-obj">Objašnjenje, nije mjereno.</span>
+          U Debug buildu prevodilac ne optimizuje i ne ubacuje male funkcije na mjesto poziva, a standardna biblioteka dodatno provjerava
+          iteratore. <code>std::queue</code> je sastavljen od mnogo malih funkcija (<code>std::deque</code>) i zato gubi najviše.
+          Brzinu treba mjeriti u Release buildu; Debug služi za traženje grešaka.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 ============================================================ -->
+<section class="slajd" id="s3" data-naslov="get(i) u petlji">
+  <div class="okvir">
+    <div class="glava">
+      <span class="oznaka">Izmjereno · zbir preko get(i)</span>
+      <h2>Ista petlja: kod ListaSekv vrijeme raste linearno, kod ListaPov kvadratno</h2>
+      <p class="podnaslov" id="t-get-pod"></p>
+    </div>
+    <div class="dvije">
+      <figure style="margin:0">
+        <div class="kontrole">
+          <div class="izbor" id="izbor-build-get" role="group" aria-label="Build"></div>
+          <div class="izbor" id="izbor-ose" role="group" aria-label="Vrsta osa"></div>
+        </div>
+        <div class="panel interaktivno"><div id="g-get"></div></div>
+        <figcaption class="potpis" id="c-get"></figcaption>
+      </figure>
+      <div class="tekst">
+        <div class="formula">ListaSekv: get(i) računa adresu → 1 korak<br>
+          T(n) = n &nbsp;&nbsp;→ n puta 2 ⇒ vrijeme puta 2<br><br>
+          ListaPov: get(i) prati next i puta → i koraka<br>
+          T(n) = 0 + 1 + … + (n − 1) = n(n − 1)/2<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ n puta 2 ⇒ vrijeme oko 4 puta</div>
+        <div class="panel tabela"><p class="mala siva" style="margin-bottom:0.4rem" id="t-get-naslov"></p>
+          <table class="mjere" id="t-get"></table></div>
+        <p class="mala" id="t-get-poruka"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 ============================================================ -->
+<section class="slajd" id="s4" data-naslov="Prostor">
+  <div class="okvir">
+    <div class="glava">
+      <span class="oznaka">Izmjereno · prostor</span>
+      <h2 id="t-prostor-h"></h2>
+      <p class="podnaslov">Program broji svaki poziv <code>new</code> i bajtove koje je tražio. 1 MB = 1.000.000 B. Sve trake imaju istu skalu.</p>
+    </div>
+    <div class="dvije">
+      <div>
+        <div class="panel"><div class="grupe" id="trake-prostor"></div>
+          <p class="legenda" style="margin-top:0.8rem"><span><span class="leg-kv" style="background:var(--s-pod)"></span>int-ovi</span>
+            <span><span class="leg-kv seg-prazno c-niz" style="opacity:1"></span>slobodan kapacitet niza</span>
+            <span><span class="leg-kv c-pov" style="background:var(--s-pov);opacity:0.5"></span>pokazivači next</span></p>
+        </div>
+        <div class="brojke" style="margin-top:1rem">
+          <div class="brojka c-niz"><div class="vr" id="b-sekv"></div><div class="ime">alokacija, ListaSekv</div></div>
+          <div class="brojka c-pov"><div class="vr" id="b-pov"></div><div class="ime">alokacija, ListaPov</div></div>
+        </div>
+      </div>
+      <div class="tekst">
+        <div class="pitanje"><h3>Zašto lista troši više</h3><p id="t-prostor-zasto"></p></div>
+        <p class="mala" id="t-prostor-niz"></p>
+        <p class="mala"><span class="oznaka-obj">Nije mjereno.</span> Svaka alokacija na heapu ima i svoju režiju (zaglavlje, poravnanje).
+          Program broji samo bajtove koje traži <code>new</code>, pa je stvarna potrošnja liste veća od prikazane; koliko, ovdje nije izmjereno.
+          Niz ima tu režiju samo za mali broj alokacija.</p>
+        <p class="mala siva" id="t-prostor-napomena"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 ============================================================ -->
+<section class="slajd" id="s5" data-naslov="Šta utiče na vrijeme">
+  <div class="okvir">
+    <div class="glava">
+      <span class="oznaka">Sažetak</span>
+      <h2>Šta sve utiče na izmjereno vrijeme</h2>
+      <p class="podnaslov">Isti algoritam, isto n, a vrijeme se mijenja. Uz svaku stavku piše je li izmjereno ili je objašnjenje.</p>
+    </div>
+    <div class="kartice">
+      <div class="kartica"><span class="korak-broj">Build · izmjereno</span><p id="t-u-build"></p></div>
+      <div class="kartica"><span class="korak-broj">Alokacije · izmjereno</span><p id="t-u-alok"></p></div>
+      <div class="kartica"><span class="korak-broj">Keš · objašnjenje</span><p id="t-u-kes"></p></div>
+      <div class="kartica"><span class="korak-broj">Računar i šum · izmjereno</span><p id="t-u-racunar"></p></div>
+    </div>
+    <div class="panel" style="margin-top:1rem">
+      <p class="citat" style="font-size:var(--t-2)">Analiza koda daje red veličine: kako vrijeme raste kad raste n. Mjerenje daje stvarno vrijeme,
+        ali samo za taj računar, taj build i te podatke.<span>Zato se rade oboje: analiza kaže šta očekivati, a mjerenje provjerava.</span></p>
+    </div>
+  </div>
+</section>
+
+<!-- 6 ============================================================ -->
+<section class="slajd" id="s6" data-naslov="Pitanja za provjeru">
+  <div class="okvir">
+    <div class="glava">
+      <span class="oznaka">Provjera</span>
+      <h2>Pitanja za provjeru</h2>
+      <p class="podnaslov">Odgovor prvo zapišite, pa ga otvorite.</p>
+    </div>
+    <div class="pitanja">
+      <div><h3 id="p1"></h3><details><summary>Odgovor</summary><p id="o1"></p></details></div>
+      <div><h3 id="p2"></h3><details><summary>Odgovor</summary><p id="o2"></p></details></div>
+      <div><h3 id="p3"></h3><details><summary>Odgovor</summary><p id="o3"></p></details></div>
+    </div>
+    <p class="mala siva" style="margin-top:1.2rem" id="t-izvor"></p>
+  </div>
+</section>
+
+</main>
+
+<nav class="navigacija" aria-label="Slajdovi">
+  <div class="napredak" id="napredak"></div>
+  <div class="okvir">
+    <button type="button" id="nazad" aria-label="Prethodni slajd">←</button>
+    <span class="broj" id="broj">1 / 6</span>
+    <button type="button" id="naprijed" aria-label="Sljedeći slajd">→</button>
+    <span class="naslov-slajda" id="naslov-slajda"></span>
+  </div>
+</nav>
+
+<script type="text/plain" id="izvor-stoperica">
+#pragma once
+
+#include <chrono>
+#include <vector>
+#include <algorithm>
+using namespace std;
+
+// ============================================================
+//  DATO: mjerenje vremena (analiza a posteriori).
+//  steady_clock ne skace kad se promijeni sat racunara.
+//  Mjeri se vise puta, a prikazuje MEDIJAN (jedno mjerenje nije dovoljno).
+// ============================================================
+template <class Fn>
+double mjeriMs(Fn fn)
+{
+	auto pocetak = chrono::steady_clock::now();
+	fn();
+	auto kraj = chrono::steady_clock::now();
+	chrono::duration<double, milli> t = kraj - pocetak;
+	return t.count();
+}
+
+double medijan(vector<double> v)
+{
+	sort(v.begin(), v.end());
+	size_t m = v.size() / 2;
+	return v.size() % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+}
+
+template <class Fn>
+double medijanMs(Fn fn, int ponavljanja = 10)
+{
+	vector<double> t;
+	for (int i = 0; i < ponavljanja; i++)
+		t.push_back(mjeriMs(fn));
+	return medijan(t);
+}
+</script>
+<script>window.MJERENJE = {"racunar":"Intel Core i7-10750H @ 2,60 GHz, 32 GB RAM, Windows 10, MSVC 19.51 (VS 18), Win32","datum":"27.10.2026.","ponavljanja":10,"program":"deck-izvor/mjerenje/v04_mjerenje.cpp","obrasci":[{"n":10,"linearna":10,"korakDva":5,"unazad":9,"putaDva":4,"ugnijezdjena":100,"zavisna":45,"korijen":5,"logLog":2},{"n":100,"linearna":100,"korakDva":50,"unazad":99,"putaDva":7,"ugnijezdjena":10000,"zavisna":4950,"korijen":14,"logLog":3},{"n":1000,"linearna":1000,"korakDva":500,"unazad":999,"putaDva":10,"ugnijezdjena":1000000,"zavisna":499500,"korijen":45,"logLog":4},{"n":10000,"linearna":10000,"korakDva":5000,"unazad":9999,"putaDva":14,"ugnijezdjena":100000000,"zavisna":49995000,"korijen":141,"logLog":4},{"n":100000,"linearna":100000,"korakDva":50000,"unazad":99999,"putaDva":17,"ugnijezdjena":null,"zavisna":null,"korijen":447,"logLog":5},{"n":1000000,"linearna":1000000,"korakDva":500000,"unazad":999999,"putaDva":20,"ugnijezdjena":null,"zavisna":null,"korijen":1414,"logLog":5}],"rast":{"kopiranja":[{"n":10,"plusJedan":45,"putaJedanIPo":25,"putaDva":15,"kapJedanIPo":13,"kapDva":16},{"n":100,"plusJedan":4950,"putaJedanIPo":284,"putaDva":127,"kapJedanIPo":141,"kapDva":128},{"n":1000,"plusJedan":499500,"putaJedanIPo":2137,"putaDva":1023,"kapJedanIPo":1066,"kapDva":1024},{"n":10000,"plusJedan":49995000,"putaJedanIPo":24284,"putaDva":16383,"kapJedanIPo":12138,"kapDva":16384},{"n":100000,"plusJedan":4999950000,"putaJedanIPo":276521,"putaDva":131071,"kapJedanIPo":138255,"kapDva":131072},{"n":1000000,"plusJedan":499999500000,"putaJedanIPo":2099753,"putaDva":1048575,"kapJedanIPo":1049869,"kapDva":1048576}]},"vectorKapacitet":[0,1,2,3,4,6,9,13,19,28,42,63,94,141,211,316,474,711,1066],"prostor":{"n":1000000,"sizeofInt":4,"sizeofCvor":8,"sizeofPokazivac":4,"listaSekvUkupnoAlocirano":10487752,"listaSekvAlokacija":25,"listaPovAlocirano":8000012,"listaPovAlokacija":1000001},"release":{"build":"Release (/O2, Win32)","red":[{"n":100000,"redSekv":{"med":0.86545,"min":0.742,"max":1.3878},"redPov":{"med":8.60905,"min":7.6484,"max":9.7397},"stdQueue":{"med":2.8872,"min":2.4411,"max":4.931}},{"n":1000000,"redSekv":{"med":7.09495,"min":6.8089,"max":8.9629},"redPov":{"med":70.5119,"min":69.4008,"max":73.2099},"stdQueue":{"med":23.4518,"min":22.518,"max":23.9085}}],"getPetlja":[{"n":1000,"listaSekv":{"med":0.00145,"min":0.0013,"max":0.0213},"listaPov":{"med":0.42885,"min":0.4269,"max":0.5833}},{"n":2000,"listaSekv":{"med":0.0027,"min":0.0027,"max":0.0028},"listaPov":{"med":2.02815,"min":1.8528,"max":2.6315}},{"n":4000,"listaSekv":{"med":0.0054,"min":0.0054,"max":0.0056},"listaPov":{"med":10.4354,"min":9.6097,"max":11.0081}},{"n":8000,"listaSekv":{"med":0.0108,"min":0.0107,"max":0.0109},"listaPov":{"med":46.5457,"min":43.662,"max":50.6201}},{"n":16000,"listaSekv":{"med":0.0215,"min":0.0214,"max":0.022},"listaPov":{"med":208.029,"min":189.634,"max":255.844}}],"rastVrijeme":[{"n":1000,"plusJedan":{"med":0.23985,"min":0.2219,"max":0.308},"putaJedanIPo":{"med":0.00355,"min":0.0031,"max":0.0098},"putaDva":{"med":0.00205,"min":0.0019,"max":0.011}},{"n":2000,"plusJedan":{"med":0.50345,"min":0.4858,"max":0.6522},"putaJedanIPo":{"med":0.0042,"min":0.004,"max":0.0053},"putaDva":{"med":0.0026,"min":0.0026,"max":0.0029}},{"n":4000,"plusJedan":{"med":1.2416,"min":1.1423,"max":1.6292},"putaJedanIPo":{"med":0.0061,"min":0.0059,"max":0.0088},"putaDva":{"med":0.004,"min":0.0038,"max":0.0063}},{"n":8000,"plusJedan":{"med":11.5467,"min":9.8983,"max":39.5198},"putaJedanIPo":{"med":0.0128,"min":0.0082,"max":0.0356},"putaDva":{"med":0.01025,"min":0.006,"max":0.027}},{"n":16000,"plusJedan":{"med":43.7076,"min":42.7315,"max":45.7306},"putaJedanIPo":{"med":0.10365,"min":0.0862,"max":0.1776},"putaDva":{"med":0.03775,"min":0.0109,"max":0.0651}},{"n":32000,"plusJedan":{"med":185.016,"min":169.761,"max":187.833},"putaJedanIPo":{"med":0.15305,"min":0.0374,"max":0.3387},"putaDva":{"med":0.0207,"min":0.0194,"max":0.1184}}]},"debug":{"build":"Debug (/Od /RTC1, Win32)","red":[{"n":100000,"redSekv":{"med":2.15715,"min":1.8422,"max":3.3404},"redPov":{"med":29.1091,"min":26.8115,"max":31.2938},"stdQueue":{"med":37.5032,"min":31.6136,"max":46.0832}},{"n":1000000,"redSekv":{"med":20.9536,"min":19.3836,"max":23.1179},"redPov":{"med":297.961,"min":292.795,"max":323.19},"stdQueue":{"med":391.116,"min":328.789,"max":404.145}}],"getPetlja":[{"n":1000,"listaSekv":{"med":0.0054,"min":0.0053,"max":0.0056},"listaPov":{"med":1.47165,"min":1.3771,"max":1.8943}},{"n":2000,"listaSekv":{"med":0.0107,"min":0.0106,"max":0.0109},"listaPov":{"med":7.38025,"min":6.4311,"max":9.631}},{"n":4000,"listaSekv":{"med":0.0213,"min":0.0212,"max":0.0217},"listaPov":{"med":31.0273,"min":29.3952,"max":42.1057}},{"n":8000,"listaSekv":{"med":0.0548,"min":0.053,"max":0.0738},"listaPov":{"med":166.516,"min":145.629,"max":187.319}},{"n":16000,"listaSekv":{"med":0.1184,"min":0.0987,"max":0.151},"listaPov":{"med":667.655,"min":640.373,"max":714.167}}],"rastVrijeme":[{"n":1000,"plusJedan":{"med":1.10835,"min":1.0445,"max":1.7392},"putaJedanIPo":{"med":0.0107,"min":0.0104,"max":0.0351},"putaDva":{"med":0.0068,"min":0.0066,"max":0.0072}},{"n":2000,"plusJedan":{"med":3.75605,"min":3.5635,"max":4.8413},"putaJedanIPo":{"med":0.01925,"min":0.0188,"max":0.0231},"putaDva":{"med":0.012,"min":0.0118,"max":0.0192}},{"n":4000,"plusJedan":{"med":15.4741,"min":13.6246,"max":20.9249},"putaJedanIPo":{"med":0.03375,"min":0.032,"max":0.0839},"putaDva":{"med":0.0196,"min":0.0189,"max":0.0206}},{"n":8000,"plusJedan":{"med":60.2605,"min":57.0315,"max":100.698},"putaJedanIPo":{"med":0.05035,"min":0.0447,"max":0.1027},"putaDva":{"med":0.0327,"min":0.0316,"max":0.0602}},{"n":16000,"plusJedan":{"med":241.305,"min":231.89,"max":280.553},"putaJedanIPo":{"med":0.1107,"min":0.104,"max":0.1992},"putaDva":{"med":0.0769,"min":0.0691,"max":0.1433}},{"n":32000,"plusJedan":{"med":981.15,"min":937.578,"max":1153.29},"putaJedanIPo":{"med":0.32595,"min":0.1857,"max":0.4592},"putaDva":{"med":0.2113,"min":0.1287,"max":0.411}}]}};</script>
+<script>
+// Zajednički dio lekcija (isti kao u mini-prezentacijama blokova s vježbi 3): jedan slajd na ekranu ili svi jedan
+// ispod drugog (način „Čitanje“), strelice i prevlačenje, adresa #sN, zapamćen način prikaza.
+// Upotreba: Prezentacija("lekcija1", crtajVidljivo), gdje crtajVidljivo iscrta grafike na vidljivim slajdovima.
+window.Prezentacija = function (kljuc, crtajVidljivo) {
+  const $ = s => document.querySelector(s);
+  const main = $("#slajdovi"), slajdovi = [...document.querySelectorAll(".slajd")];
+  let tren = 0;
+  function prikazi(i, izHasha) {
+    tren = Math.max(0, Math.min(slajdovi.length - 1, i));
+    slajdovi.forEach((s, k) => s.classList.toggle("aktivan", k === tren));
+    $("#broj").textContent = `${tren + 1} / ${slajdovi.length}`;
+    $("#naslov-slajda").textContent = slajdovi[tren].dataset.naslov;
+    $("#napredak").style.width = `${((tren + 1) / slajdovi.length) * 100}%`;
+    $("#nazad").disabled = tren === 0; $("#naprijed").disabled = tren === slajdovi.length - 1;
+    if (!izHasha) { try { history.replaceState(null, "", "#" + slajdovi[tren].id); } catch (e) {} }
+    if (main.classList.contains("prezentacija")) window.scrollTo(0, 0);
+    crtajVidljivo();
+  }
+  $("#nazad").addEventListener("click", () => prikazi(tren - 1));
+  $("#naprijed").addEventListener("click", () => prikazi(tren + 1));
+  document.addEventListener("keydown", e => {
+    if (!main.classList.contains("prezentacija") || e.target.closest("input, textarea, select")) return;
+    if (["ArrowRight", "PageDown"].includes(e.key) || (e.key === " " && !e.target.closest("button"))) { e.preventDefault(); prikazi(tren + 1); }
+    if (["ArrowLeft", "PageUp"].includes(e.key)) { e.preventDefault(); prikazi(tren - 1); }
+    if (e.key === "Home") prikazi(0);
+    if (e.key === "End") prikazi(slajdovi.length - 1);
+  });
+  let dodirX = null;
+  main.addEventListener("touchstart", e => { dodirX = e.touches[0].clientX; }, { passive: true });
+  main.addEventListener("touchend", e => {
+    if (dodirX === null || !main.classList.contains("prezentacija")) return;
+    const dx = e.changedTouches[0].clientX - dodirX; dodirX = null;
+    if (e.target.closest("input, select, canvas, .interaktivno")) return;
+    if (Math.abs(dx) > 70) prikazi(tren + (dx < 0 ? 1 : -1));
+  });
+  function nacin(citanje) {
+    main.classList.toggle("citanje", citanje); main.classList.toggle("prezentacija", !citanje);
+    $("#nacin-citanje").setAttribute("aria-pressed", citanje); $("#nacin-prezentacija").setAttribute("aria-pressed", !citanje);
+    try { localStorage.setItem(kljuc + "-nacin", citanje ? "citanje" : "prezentacija"); } catch (e) {}
+    if (citanje) requestAnimationFrame(() => slajdovi[tren].scrollIntoView());
+    crtajVidljivo();
+  }
+  $("#nacin-citanje").addEventListener("click", () => nacin(true));
+  $("#nacin-prezentacija").addEventListener("click", () => nacin(false));
+  addEventListener("resize", () => crtajVidljivo());
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => crtajVidljivo());
+
+  let pocetni = 0;
+  const h = location.hash.replace("#", ""), k = slajdovi.findIndex(s => s.id === h); if (k >= 0) pocetni = k;
+  let sacuvano = null; try { sacuvano = localStorage.getItem(kljuc + "-nacin"); } catch (e) {}
+  if (sacuvano === "citanje") nacin(true);
+  prikazi(pocetni, true);
+  if (main.classList.contains("prezentacija")) setTimeout(() => window.scrollTo(0, 0), 0);
+  addEventListener("hashchange", () => {
+    const i = slajdovi.findIndex(s => s.id === location.hash.replace("#", ""));
+    if (i >= 0 && i !== tren) { prikazi(i, true); if (main.classList.contains("citanje")) slajdovi[i].scrollIntoView(); }
+  });
+  return { prikazi };
+};
+
+// Zajedničke pomoćne funkcije za grafike (SVG) i brojeve.
+window.Pomoc = (() => {
+  const SVG = "http://www.w3.org/2000/svg";
+  const el = (ime, atr = {}, tekst) => { const e = document.createElementNS(SVG, ime); for (const [k, v] of Object.entries(atr)) e.setAttribute(k, v); if (tekst !== undefined) e.textContent = tekst; return e; };
+  const zarez = (x, d = 2) => x.toFixed(d).replace(".", ",").replace("-", "−");
+  const pct = x => `${Math.round(x * 100)}%`;
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  // mulberry32: ponovljivi slučajni brojevi za ilustracije u web pregledniku
+  const rng = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  return { el, zarez, pct, css, rng };
+})();
+
+</script>
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const { el, zarez } = window.Pomoc, D = window.MJERENJE, P = D.ponavljanja;
+  const B = { release: D.release, debug: D.debug }, BIME = { release: "Release", debug: "Debug" };
+
+  // ---------------- brojevi: tačka za hiljade, decimalni zarez ----------------
+  // zaokruživanje: 0.00145 je u binarnom zapisu malo manje, pa toFixed daje 0,0014; mali pomak daje 0,0015
+  const okrugli = (x, d) => Math.sign(x) * Math.round(Math.abs(x) * 10 ** d * (1 + 1e-12)) / 10 ** d;
+  const broj = (x, d = 0) => { const [c, f] = zarez(okrugli(x, d), d).split(","); return c.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + (f !== undefined ? "," + f : ""); };
+  const ms = x => broj(x, x < 0.01 ? 4 : x < 0.1 ? 3 : x < 10 ? 2 : x < 100 ? 1 : 0);
+  const mb = b => broj(b / 1e6, 2) + " MB";
+  const puta = (x, d = 1) => zarez(x, d) + "×";
+  const html = (tag, atr = {}, tekst) => { const e = document.createElement(tag); Object.assign(e, atr); if (tekst !== undefined) e.textContent = tekst; return e; };
+
+  // ---------------- kod Stoperica.h, doslovno (komentari sivo) ----------------
+  {
+    const k = $("#kod-stoperica");
+    $("#izvor-stoperica").textContent.replace(/^\n/, "").replace(/\s+$/, "").split("\n").forEach((red, j) => {
+      if (j) k.append("\n");
+      const i = red.indexOf("//");
+      if (i < 0) k.append(red); else { k.append(red.slice(0, i)); k.append(html("span", { className: "kom" }, red.slice(i))); }
+    });
+  }
+
+  // ---------------- slajd 1 ----------------
+  $("#t-uvod").textContent = `Brojke na ovoj stranici su izmjerene programom u C++ (${D.datum}), a ne ilustracija. Svaka se računa iz rezultata mjerenja.`;
+  $("#t-ponavljanja").textContent = `Svako mjerenje ${P} puta. Prikazuje se medijan, a pojas ili tanka linija je raspon od najmanje do najveće vrijednosti. Jedno mjerenje nije dovoljno.`;
+  $("#t-build").textContent = `Isti izvorni kod preveden dva puta: ${D.release.build} i ${D.debug.build}. Računar: ${D.racunar}.`;
+
+  // ---------------- dugmad za izbor ----------------
+  function izbor(cilj, stavke, aktivne, promjena) {
+    const c = $(cilj);
+    stavke.forEach(s => {
+      const b = html("button", { type: "button" }, s.tekst);
+      b.setAttribute("aria-pressed", aktivne.has(s.k));
+      b.addEventListener("click", () => {
+        aktivne.clear(); aktivne.add(s.k);
+        [...c.children].forEach((d, j) => d.setAttribute("aria-pressed", aktivne.has(stavke[j].k)));
+        promjena();
+      });
+      c.append(b);
+    });
+  }
+  const BUILDOVI = [{ k: "release", tekst: "Release" }, { k: "debug", tekst: "Debug" }];
+
+  // ---------------- slajd 2: red ----------------
+  const RED = [
+    { k: "redSekv", ime: "RedSekv", opis: "kružni niz, kapacitet se udvostručuje", kl: "c-niz" },
+    { k: "redPov", ime: "RedPov", opis: "povezana lista, čvor po elementu", kl: "c-pov" },
+    { k: "stdQueue", ime: "std::queue", opis: "standardna biblioteka MSVC", kl: "c-std" },
+  ];
+  const RK = Object.fromEntries(RED.map(i => [i.k, i]));
+  const NQ = D.release.red.map(r => r.n);
+  console.assert(D.debug.red.map(r => r.n).join() === NQ.join(), "različita n za red");
+  const redR = (b, n) => B[b].red.find(r => r.n === n);
+  const poredakRed = (b, n) => RED.slice().sort((x, y) => redR(b, n)[x.k].med - redR(b, n)[y.k].med);
+  const nQ = NQ[NQ.length - 1];
+  $("#t-red-pod").textContent = `Mjeri se n puta dodaj, pa n puta ukloni, za n = ${NQ.map(n => broj(n)).join(" i ")}. ` +
+    `Traka je medijan, a tanka linija raspon od najmanje do najveće vrijednosti među ${P} ponavljanja.`;
+  const naBuildRed = new Set(["release"]);
+  izbor("#izbor-build-red", BUILDOVI, naBuildRed, () => crtajRed());
+  function crtajRed() {
+    const b = [...naBuildRed][0], c = $("#trake-red"); c.replaceChildren();
+    NQ.forEach(n => {
+      const r = redR(b, n), maks = Math.max(...RED.map(i => r[i.k].max)), por = poredakRed(b, n).map(i => i.k);
+      const g = html("div", { className: "grupa" });
+      g.append(html("div", { className: "grupa-naslov" }, `${BIME[b]} · n = ${broj(n)}`));
+      RED.forEach(i => {
+        const v = r[i.k], red_ = html("div", { className: i.kl });
+        const ime = html("div", { className: "traka-ime" });
+        ime.append(html("span", { className: "mjesto" }, (por.indexOf(i.k) + 1) + "."), i.ime + " ", html("span", { className: "opis-impl" }, i.opis));
+        const t = html("div", { className: "traka", title: `${i.ime}, ${BIME[b]}, n = ${broj(n)}: medijan ${ms(v.med)} ms (od ${ms(v.min)} do ${ms(v.max)})` });
+        const s = html("span", { className: "stub" }); s.style.width = (100 * v.med / maks) + "%";
+        const rs = html("span", { className: "raspon" }); rs.style.left = (100 * v.min / maks) + "%"; rs.style.width = (100 * (v.max - v.min) / maks) + "%";
+        t.append(s, rs);
+        const o = html("div", { className: "traka-tekst" }); o.innerHTML = `<b>${ms(v.med)} ms</b> (od ${ms(v.min)} do ${ms(v.max)})`;
+        red_.append(ime, t, o); g.append(red_);
+      });
+      c.append(g);
+    });
+  }
+  {
+    const opisP = (b, n) => poredakRed(b, n).map(i => `${i.ime} ${ms(redR(b, n)[i.k].med)}`).join(" < ") + " ms";
+    const kljuc = (b, n) => poredakRed(b, n).map(i => i.k).join();
+    const istiPoN = ["release", "debug"].every(b => NQ.every(n => kljuc(b, n) === kljuc(b, NQ[0])));
+    const mijenja = kljuc("release", nQ) !== kljuc("debug", nQ);
+    console.assert(mijenja, "poredak se ne mijenja s buildom");
+    // preklapaju li se rasponi susjednih mjesta?
+    const preklop = [];
+    ["release", "debug"].forEach(b => NQ.forEach(n => { const p = poredakRed(b, n), r = redR(b, n);
+      for (let j = 1; j < p.length; j++) if (r[p[j - 1].k].max >= r[p[j].k].min) preklop.push(`${BIME[b]}, n = ${broj(n)}: ${p[j - 1].ime} i ${p[j].ime}`); }));
+    const mjestoStd = b => poredakRed(b, nQ).findIndex(i => i.k === "stdQueue") + 1;
+    $("#t-red-poredak").textContent = `Release, n = ${broj(nQ)}: ${opisP("release", nQ)}. Debug: ${opisP("debug", nQ)}. ` +
+      (istiPoN ? `Za n = ${broj(NQ[0])} je poredak isti kao za n = ${broj(nQ)}. ` : "") +
+      `std::queue je u Release buildu ${mjestoStd("release")}., a u Debug buildu ${mjestoStd("debug")}. po brzini. ` +
+      (preklop.length ? `Rasponi se preklapaju (${preklop.join("; ")}), pa je tu poredak manje pouzdan.` : "Rasponi susjednih mjesta se nigdje ne preklapaju.");
+    const t = $("#t-red");
+    t.append(html("tr", { innerHTML: "<th>implementacija</th><th>n</th><th>Release</th><th>Debug</th><th>Debug ÷ Rel.</th>" }));
+    RED.forEach(i => NQ.forEach(n => {
+      const a = redR("release", n)[i.k].med, d = redR("debug", n)[i.k].med;
+      t.append(html("tr", { innerHTML: `<td><i class="boja ${i.kl}"></i>${i.ime}</td><td>${broj(n)}</td><td>${ms(a)}</td><td>${ms(d)}</td><td><b>${puta(d / a)}</b></td>` }));
+    }));
+  }
+
+  // ---------------- linijski grafikon (SVG), kao u V05 ----------------
+  function grafik(cilj, o) {
+    const c = $(cilj); c.replaceChildren();
+    const W = Math.max(300, Math.min(640, c.clientWidth || 520)), H = Math.round(Math.max(230, Math.min(360, W * 0.64)));
+    const L = 58, Rm = 78, T = 26, Bm = 40;
+    const sx = o.xLog ? v => Math.log10(v) : v => v, sy = o.yLog ? v => Math.log10(v) : v => v;
+    const X = v => L + (W - L - Rm) * (sx(v) - sx(o.x0)) / (sx(o.x1) - sx(o.x0));
+    const Y = v => T + (H - T - Bm) * (1 - (sy(v) - sy(o.y0)) / (sy(o.y1) - sy(o.y0)));
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafik", role: "img", "aria-label": o.opis });
+    o.yTicks.forEach(v => {
+      svg.append(el("line", { x1: L, x2: W - Rm, y1: Y(v), y2: Y(v), class: "g-mreza" }));
+      svg.append(el("text", { x: L - 6, y: Y(v) + 4, "text-anchor": "end", class: "g-oznaka" }, o.fy(v)));
+    });
+    svg.append(el("line", { x1: L, x2: W - Rm, y1: H - Bm, y2: H - Bm, class: "g-os" }));
+    o.xTicks.forEach((v, j) => {
+      if (W < 420 && j % 2 === 1) return;
+      svg.append(el("text", { x: X(v), y: H - Bm + 16, "text-anchor": "middle", class: "g-oznaka" }, broj(v)));
+    });
+    svg.append(el("text", { x: L + (W - L - Rm) / 2, y: H - 6, "text-anchor": "middle", class: "g-naslov-x" }, o.xNaslov));
+    svg.append(el("text", { x: L, y: T - 12, class: "g-naslov-x" }, o.yNaslov));
+    const kraj = [];
+    o.serije.forEach(s => {
+      const g = el("g", { class: s.kl }), tt = s.tacke;
+      const p = tt.map(t => `${X(t.x)},${Y(t.hi)}`).concat(tt.slice().reverse().map(t => `${X(t.x)},${Y(t.lo)}`));
+      g.append(el("polygon", { points: p.join(" "), class: "g-pojas" }));
+      g.append(el("polyline", { points: tt.map(t => `${X(t.x)},${Y(t.y)}`).join(" "), class: "g-linija" }));
+      tt.forEach(t => { const k = el("circle", { cx: X(t.x), cy: Y(t.y), r: 4, class: "g-tck" }); k.append(el("title", {}, t.nap)); g.append(k); });
+      svg.append(g);
+      const z = tt[tt.length - 1]; kraj.push({ y: Y(z.y), x: X(z.x), ime: s.ime });
+    });
+    kraj.sort((a, b) => a.y - b.y);
+    for (let j = 1; j < kraj.length; j++) kraj[j].y = Math.max(kraj[j].y, kraj[j - 1].y + 14);
+    const visak = kraj.length ? kraj[kraj.length - 1].y - (H - Bm) : 0;
+    if (visak > 0) kraj.forEach(k => k.y -= visak);
+    kraj.forEach(k => svg.append(el("text", { x: k.x + 8, y: k.y + 4, class: "g-ime" }, k.ime)));
+    c.append(svg);
+  }
+  const lijepKorak = m => { const e = 10 ** Math.floor(Math.log10(m / 4)); return [1, 2, 2.5, 5, 10].map(f => f * e).find(s => m / s <= 5); };
+  const potencije = (a, b) => { const r = []; for (let e = Math.round(Math.log10(a)); e <= Math.round(Math.log10(b)); e++) r.push(10 ** e); return r; };
+  const fLog = v => v < 1 ? zarez(v, Math.round(-Math.log10(v))) : broj(v);
+
+  // ---------------- slajd 3: get(i) u petlji ----------------
+  const LIS = [
+    { k: "listaSekv", ime: "ListaSekv", kl: "c-niz", T: n => n },
+    { k: "listaPov", ime: "ListaPov", kl: "c-pov", T: n => n * (n - 1) / 2 },
+  ];
+  const NG = D.release.getPetlja.map(r => r.n);
+  console.assert(D.debug.getPetlja.map(r => r.n).join() === NG.join(), "različita n za get");
+  const nG = NG[NG.length - 1];
+  const getR = (b, n) => B[b].getPetlja.find(r => r.n === n);
+  const odnosi = (b, k) => NG.slice(1).map((n, j) => getR(b, n)[k].med / getR(b, NG[j])[k].med);
+  const nsKorak = (b, n) => getR(b, n).listaPov.med * 1e6 / LIS[1].T(n);
+  $("#t-get-pod").textContent = `Mjeri se zbir s += get(i) za i = 0 … n − 1, za n = ${NG.map(n => broj(n)).join(", ")}. ` +
+    `Linija je medijan, pojas raspon među ${P} ponavljanja. Dugmad mijenjaju build i vrstu osa.`;
+  const naBuildGet = new Set(["release"]), naOse = new Set(["lin"]);
+  izbor("#izbor-build-get", BUILDOVI, naBuildGet, () => crtajGet());
+  izbor("#izbor-ose", [{ k: "lin", tekst: "linearne ose" }, { k: "log", tekst: "logaritamske ose" }], naOse, () => crtajGet());
+  function crtajGet() {
+    const b = [...naBuildGet][0], log = naOse.has("log");
+    const ser = LIS.map(i => ({ kl: i.kl, ime: i.ime, tacke: NG.map(n => { const v = getR(b, n)[i.k];
+      return { x: n, y: v.med, lo: v.min, hi: v.max, nap: `${i.ime}, ${BIME[b]}, n = ${broj(n)}: medijan ${ms(v.med)} ms (od ${ms(v.min)} do ${ms(v.max)})` }; }) }));
+    const sve = ser.flatMap(s => s.tacke.flatMap(t => [t.lo, t.hi]));
+    if (log) {
+      const y0 = 10 ** Math.floor(Math.log10(Math.min(...sve))), y1 = 10 ** Math.ceil(Math.log10(Math.max(...sve)));
+      grafik("#g-get", { serije: ser, xLog: true, yLog: true, x0: NG[0], x1: nG, y0, y1, yTicks: potencije(y0, y1), xTicks: NG, fy: fLog,
+        xNaslov: "broj elemenata n (logaritamska osa)", yNaslov: "vrijeme petlje, ms (logaritamska osa)", opis: "Vrijeme petlje get(i) u zavisnosti od n, logaritamske ose" });
+    } else {
+      const m = Math.max(...sve), k = lijepKorak(m), y1 = Math.ceil(m / k) * k, yt = [];
+      for (let v = 0; v <= y1 + 1e-9; v += k) yt.push(v);
+      const xt = []; for (let v = 0; v <= nG; v += nG / 4) xt.push(v);
+      grafik("#g-get", { serije: ser, x0: 0, x1: nG, y0: 0, y1, yTicks: yt, xTicks: xt, fy: v => broj(v),
+        xNaslov: "broj elemenata n", yNaslov: "vrijeme petlje, ms", opis: "Vrijeme petlje get(i) u zavisnosti od n, linearne ose" });
+    }
+    const zs = getR(b, nG);
+    $("#c-get").textContent = (log ? "Na logaritamskim osama je linearan rast prava s nagibom 1, a kvadratni prava s nagibom 2. "
+      : "Na linearnim osama se ListaSekv skoro ne odvaja od nule. ") +
+      `${BIME[b]}, n = ${broj(nG)}: ListaSekv ${ms(zs.listaSekv.med)} ms, ListaPov ${ms(zs.listaPov.med)} ms, oko ${broj(Math.round(zs.listaPov.med / zs.listaSekv.med / 100) * 100)} puta duže.`;
+    $("#t-get-naslov").textContent = `${BIME[b]}: medijan (ms) i odnos prema prethodnom n`;
+    const t = $("#t-get"); t.replaceChildren();
+    t.append(html("tr", { innerHTML: "<th>n</th><th>ListaSekv</th><th>×</th><th>ListaPov</th><th>×</th><th>formula</th><th>ns / korak</th>" }));
+    NG.forEach((n, j) => {
+      const r = getR(b, n), p = j ? getR(b, NG[j - 1]) : null;
+      const f = j ? LIS[1].T(n) / LIS[1].T(NG[j - 1]) : null;
+      t.append(html("tr", { innerHTML: `<td>${broj(n)}</td><td>${ms(r.listaSekv.med)}</td><td>${p ? zarez(r.listaSekv.med / p.listaSekv.med, 2) : "–"}</td>` +
+        `<td>${ms(r.listaPov.med)}</td><td><b>${p ? zarez(r.listaPov.med / p.listaPov.med, 2) : "–"}</b></td><td>${f ? zarez(f, 2) : "–"}</td><td>${zarez(nsKorak(b, n), 2)}</td>` }));
+    });
+    const oS = odnosi(b, "listaSekv"), oP = odnosi(b, "listaPov"), ns0 = nsKorak(b, NG[0]), nsK = nsKorak(b, nG);
+    $("#t-get-poruka").innerHTML = `Kad se n udvostruči, ListaSekv traje ${zarez(Math.min(...oS), 2)} do ${zarez(Math.max(...oS), 2)} puta duže (formula: 2), ` +
+      `a ListaPov ${zarez(Math.min(...oP), 2)} do ${zarez(Math.max(...oP), 2)} puta duže (formula: oko 4). ` +
+      `„ns / korak“ = medijan ListaPov / (n(n − 1)/2): od ${zarez(ns0, 2)} ns za n = ${broj(NG[0])} do ${zarez(nsK, 2)} ns za n = ${broj(nG)}. ` +
+      (nsK > ns0 ? `Jedan korak postaje skuplji kako n raste, pa mjereni odnos zna biti veći od 4. <span class="oznaka-obj">Objašnjenje, nije mjereno:</span> ` +
+        `što je lista duža, to se manje njenih čvorova nalazi u kešu procesora.` : "");
+  }
+
+  // ---------------- slajd 4: prostor ----------------
+  const S = D.prostor, nS = S.n, podaci = nS * S.sizeofInt;
+  // kapacitet ListaSekv: konstruktor u programu mjerenja daje 10, a proširenje udvostručuje
+  const kap = [10]; while (kap[kap.length - 1] < nS) kap.push(kap[kap.length - 1] * 2);
+  const kapK = kap[kap.length - 1], nizKraj = kapK * S.sizeofInt, zbirNizova = kap.reduce((a, b) => a + b, 0) * S.sizeofInt;
+  const vrh = (kap[kap.length - 2] + kapK) * S.sizeofInt, cvorovi = nS * S.sizeofCvor;
+  console.assert(S.listaSekvUkupnoAlocirano >= zbirNizova && S.listaPovAlocirano >= cvorovi, "prostor: zbir ne odgovara");
+  $("#t-prostor-h").textContent = `Prostor za ${broj(nS)} int-ova: niz alocira ${broj(S.listaSekvAlokacija)} puta, lista ${broj(S.listaPovAlokacija)} puta`;
+  {
+    const maks = Math.max(S.listaSekvUkupnoAlocirano, S.listaPovAlocirano, nizKraj);
+    const w = x => (100 * x / maks) + "%";
+    const RED_P = [
+      { ime: `Samo podaci: ${broj(nS)} × ${S.sizeofInt} B`, kl: "c-pod", seg: [["seg-pun", podaci]], b: mb(podaci), tekst: "" },
+      { ime: `ListaSekv, niz na kraju: kapacitet ${broj(kapK)}`, kl: "c-niz", seg: [["seg-pun c-pod", podaci], ["seg-prazno", nizKraj - podaci]],
+        b: mb(nizKraj), tekst: `, od toga ${mb(nizKraj - podaci)} slobodno (${broj(100 * (nizKraj - podaci) / nizKraj)} %); izračunato iz kapaciteta` },
+      { ime: "ListaSekv, ukupno alocirano tokom rasta", kl: "c-niz", seg: [["seg-pun", S.listaSekvUkupnoAlocirano]],
+        b: mb(S.listaSekvUkupnoAlocirano), tekst: ` (izmjereno); stari nizovi se oslobađaju, najviše istovremeno ${mb(vrh)} (izračunato)` },
+      { ime: `ListaPov: ${broj(nS)} čvorova × ${S.sizeofCvor} B`, kl: "c-pov", seg: [["seg-pun c-pod", nS * S.sizeofInt], ["seg-pola", nS * (S.sizeofCvor - S.sizeofInt)]],
+        b: mb(S.listaPovAlocirano), tekst: " (izmjereno) ", nepoznato: true },
+    ];
+    const c = $("#trake-prostor");
+    RED_P.forEach(r => {
+      const d = html("div", { className: r.kl });
+      d.append(html("div", { className: "traka-ime" }, r.ime));
+      const t = html("div", { className: "prostor-traka" });
+      r.seg.forEach(([k, v]) => { const s = html("span", { className: k }); s.style.width = w(v); t.append(s); });
+      const o = html("div", { className: "traka-tekst" }); o.append(html("b", {}, r.b), r.tekst);
+      if (r.nepoznato) o.append(html("span", { className: "nepoznato", title: "Režija heapa po alokaciji nije mjerena" }, "+ režija heapa: ?"));
+      d.append(t, o); c.append(d);
+    });
+    $("#b-sekv").textContent = broj(S.listaSekvAlokacija);
+    $("#b-pov").textContent = broj(S.listaPovAlokacija);
+    $("#t-prostor-zasto").textContent = `Svaki čvor uz int (${S.sizeofInt} B) nosi i pokazivač next (${S.sizeofPokazivac} B u Win32 buildu), pa čvor ima ${S.sizeofCvor} B: ` +
+      `pola memorije liste su pokazivači. Na x64 je pokazivač 8 B i čvor bi zbog poravnanja imao 16 B (izračunato, nije mjereno). ` +
+      `Uz to lista ima ${broj(S.listaPovAlokacija)} alokacija, a niz samo ${broj(S.listaSekvAlokacija)}.`;
+    $("#t-prostor-niz").textContent = `Niz počinje s kapacitetom 10 i udvostručuje se: ${kap.length - 1} proširenja do ${broj(kapK)} mjesta. ` +
+      `Na kraju zauzima ${mb(nizKraj)}, manje od liste, iako četvrtina mjesta stoji prazna. Tokom rasta je ukupno alocirano ${mb(S.listaSekvUkupnoAlocirano)}, ` +
+      `ali se svaki stari niz oslobodi čim se elementi prekopiraju.`;
+    const ostSekv = S.listaSekvAlokacija - kap.length, ostPov = S.listaPovAlokacija - nS;
+    $("#t-prostor-napomena").textContent = `Napomena o brojanju: od ${broj(S.listaSekvAlokacija)} alokacija niza ${kap.length} su nizovi (${broj(zbirNizova)} B), ` +
+      `a ostalih ${ostSekv} (${broj(S.listaSekvUkupnoAlocirano - zbirNizova)} B) su sam objekat liste i bafer u koji program preusmjerava poruke o proširenju. ` +
+      `Kod liste je ${broj(nS)} alokacija čvorova i ${ostPov} alokacija (${broj(S.listaPovAlocirano - cvorovi)} B) za sam objekat liste.`;
+  }
+
+  // ---------------- slajd 5: šta utiče ----------------
+  {
+    const r1 = redR("release", nQ), d1 = redR("debug", nQ);
+    const f = k => d1[k].med / r1[k].med;
+    const fg = getR("debug", nG).listaPov.med / getR("release", nG).listaPov.med;
+    $("#t-u-build").textContent = `Red, n = ${broj(nQ)}: Debug je sporiji ${RED.map(i => `${puta(f(i.k))} (${i.ime})`).join(", ")}. ` +
+      `Petlja get(i) za ListaPov, n = ${broj(nG)}: ${puta(fg)}. Build ne usporava sve jednako, pa mijenja i poredak (slajd 2).`;
+    $("#t-u-alok").textContent = `RedPov za n = ${broj(nQ)} radi ${broj(nQ)} alokacija i isto toliko oslobađanja, a RedSekv samo nekoliko proširenja niza. ` +
+      `Oba reda imaju dodaj i ukloni O(1), a u Release buildu RedPov traje ${puta(r1.redPov.med / r1.redSekv.med)} duže (${ms(r1.redPov.med)} prema ${ms(r1.redSekv.med)} ms).`;
+    $("#t-u-kes").textContent = `Niz je kontinuiran blok memorije, pa procesor susjedne elemente unaprijed učitava u keš. Čvorovi liste su razbacani po memoriji (P01), ` +
+      `a adresa sljedećeg čvora se zna tek kad se pročita trenutni. U mjerenju se to vidi posredno: korak u get-petlji liste poskupi s ` +
+      `${zarez(nsKorak("release", NG[0]), 2)} na ${zarez(nsKorak("release", nG), 2)} ns (Release).`;
+    const v = getR("release", NG[0]).listaSekv;
+    $("#t-u-racunar").textContent = `Sve je izmjereno na jednom računaru (${D.racunar}); na drugom su milisekunde drugačije. ` +
+      `I na istom računaru ponavljanja se razlikuju: ListaSekv, n = ${broj(NG[0])}, Release ima medijan ${ms(v.med)} ms, a najsporije ponavljanje ${ms(v.max)} ms ` +
+      `(${puta(v.max / v.med)}). Zato se mjeri više puta i prikazuje medijan.`;
+  }
+
+  // ---------------- slajd 6: pitanja ----------------
+  {
+    const g = getR("release", nG).listaPov.med, n2 = 2 * nG, fo = LIS[1].T(n2) / LIS[1].T(nG), oP = odnosi("release", "listaPov");
+    $("#p1").textContent = `ListaPov, Release: zbir preko get(i) za n = ${broj(nG)} traje ${ms(g)} ms. Koliko očekujete za n = ${broj(n2)}, koje nije mjereno?`;
+    $("#o1").textContent = `Formula n(n − 1)/2 daje ${zarez(fo, 2)} puta više koraka, pa oko ${broj(Math.round(g * fo / 10) * 10)} ms. ` +
+      `Izmjereni odnosi za udvostručeno n bili su od ${zarez(Math.min(...oP), 2)} do ${zarez(Math.max(...oP), 2)}, pa je moguće i nešto više. To je procjena iz analize, a ne mjerenje.`;
+    const r1 = redR("release", nQ), d1 = redR("debug", nQ);
+    $("#p2").textContent = `Kolega je u Debug buildu izmjerio da je std::queue sporiji od RedPov (${ms(d1.stdQueue.med)} prema ${ms(d1.redPov.med)} ms za n = ${broj(nQ)}) ` +
+      `i zaključio da je std::queue loš. Šta mu odgovarate?`;
+    $("#o2").textContent = `Debug build nije optimizovan i ima dodatne provjere, a one najviše usporavaju std::queue. U Release buildu je std::queue ${puta(r1.redPov.med / r1.stdQueue.med)} brži od RedPov ` +
+      `(${ms(r1.stdQueue.med)} prema ${ms(r1.redPov.med)} ms). Brzina se mjeri u Release buildu, a zaključak vrijedi za taj računar i taj prevodilac.`;
+    $("#p3").textContent = `Zašto lista za ${broj(S.n)} int-ova alocira ${mb(S.listaPovAlocirano).replace(",00", "")}, a ne ${mb(S.n * S.sizeofInt).replace(",00", "")}? Bi li na x64 bilo isto?`;
+    $("#o3").textContent = `Svaki čvor uz int (${S.sizeofInt} B) nosi pokazivač next (${S.sizeofPokazivac} B u Win32 buildu). Na x64 je pokazivač 8 B, a čvor zbog poravnanja 16 B, ` +
+      `pa bi bilo oko ${broj(S.n * 16 / 1e6)} MB (izračunato, nije mjereno). Uz to svaka od ${broj(S.listaPovAlokacija)} alokacija ima režiju heapa, koja ovdje nije mjerena.`;
+    $("#t-izvor").textContent = `Izvor svih brojki: program v04_mjerenje.cpp (MSVC; ${D.release.build}; ${D.debug.build}), ${P} ponavljanja, ${D.datum} Računar: ${D.racunar}.`;
+  }
+
+  function crtajVidljivo() { crtajRed(); crtajGet(); }
+  Prezentacija("v04-mjerenje", crtajVidljivo);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,952 @@
+<!doctype html>
+<html lang="bs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rast niza pri dodavanju</title>
+<meta name="description" content="Mini-prezentacija za vježbe V04 (SPA): koliko košta proširenje niza kad se raste za 1, ×1,5 ili ×2, i zašto je dodavanje u prosjeku konstantno.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Raspored: mini-prezentacija od 10 slajdova; jedan slajd na ekranu (strelice), ili svi jedan ispod
+   drugog (način „Čitanje“). Papir je svijetao, svijet i putanje su na tamnoj podlozi kao u NetLogu. */
+:root {
+  --papir: #eef1f4; --list: #ffffff; --tinta: #17212b; --siva: #56636f; --linija: #d3dae1;
+  --narandza: #b9531a; --narandza-meko: #f6dfd0; --margina: #e5a3a3; --svijet: #0b0d10;
+  --za: #345da9; --protiv: #d73229; --neodlucni: #8d8d8d;
+  --f-naslov: "Bitter", "Georgia", "Cambria", serif;
+  --f-tekst: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "IBM Plex Mono", "Cascadia Mono", Consolas, "Courier New", monospace;
+  --t-0: 0.83rem; --t-1: 1rem; --t-2: 1.17rem; --t-3: 1.5rem; --t-4: 2.2rem; --t-5: 3.1rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --papir: #10161c; --list: #18212a; --tinta: #e3e9ee; --siva: #9ba8b4; --linija: #2a3540;
+    --narandza: #f0894a; --narandza-meko: #3a2416; --margina: #6b3535; --za: #5b86d6; --protiv: #e5574e; --neodlucni: #9a9a9a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --papir: #10161c; --list: #18212a; --tinta: #e3e9ee; --siva: #9ba8b4; --linija: #2a3540;
+  --narandza: #f0894a; --narandza-meko: #3a2416; --margina: #6b3535; --za: #5b86d6; --protiv: #e5574e; --neodlucni: #9a9a9a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { font-size: 18px; }
+@media (max-width: 600px) { html { font-size: 16px; } }
+body { margin: 0; background: var(--papir); color: var(--tinta); font-family: var(--f-tekst); line-height: 1.55; }
+[hidden] { display: none !important; }
+a { color: var(--narandza); text-underline-offset: 0.15em; }
+:focus-visible { outline: 3px solid var(--narandza); outline-offset: 2px; }
+h1, h2, h3 { font-family: var(--f-naslov); text-wrap: balance; line-height: 1.18; margin: 0; }
+p { margin: 0; }
+code { font-family: var(--f-mono); font-size: 0.9em; }
+p code, li code, td code { background: var(--narandza-meko); padding: 0.05em 0.3em; border-radius: 3px; }
+.okvir { max-width: 1200px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.oznaka { font-family: var(--f-mono); font-size: var(--t-0); letter-spacing: 0.08em; text-transform: uppercase; color: var(--narandza); font-weight: 500; }
+.siva { color: var(--siva); }
+.mala { font-size: var(--t-0); }
+
+/* traka na vrhu */
+.vrh { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--papir); border-bottom: 1px solid var(--linija); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--papir); }
+.vrh .okvir { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem 1rem; padding-block: 0.55rem; flex-wrap: wrap; }
+.vrh b { font-family: var(--f-naslov); font-weight: 700; }
+.nacin { display: flex; gap: 0.3rem; }
+button { font: 500 var(--t-0) var(--f-mono); border-radius: 4px; padding: 0.4rem 0.8rem; cursor: pointer;
+  border: 1px solid var(--narandza); background: transparent; color: var(--narandza); }
+button[aria-pressed="true"], button.glavno { background: var(--narandza); color: var(--list); }
+button:disabled { opacity: 0.45; cursor: default; }
+
+/* slajdovi */
+.slajd { padding-block: 2rem 6rem; scroll-margin-top: 3.4rem; }
+main.prezentacija .slajd { display: none; min-height: calc(100svh - 3.2rem); }
+main.prezentacija .slajd.aktivan { display: block; }
+main.citanje .slajd { border-bottom: 1px solid var(--linija); padding-block: 2.5rem; }
+.glava { display: grid; gap: 0.35rem; margin-bottom: 1.4rem; }
+.glava h2 { font-size: var(--t-4); max-width: 30ch; }
+.glava .podnaslov { font-size: var(--t-2); color: var(--siva); max-width: 52rem; }
+.dvije { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2rem; align-items: start; }
+.dvije > * { min-width: 0; }
+@media (max-width: 900px) { .dvije { grid-template-columns: minmax(0, 1fr); } }
+.tekst { display: grid; gap: 1rem; }
+.tekst ul { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+.panel { background: var(--list); border: 1px solid var(--linija); border-radius: 6px; padding: 1rem; }
+.pitanje { background: var(--narandza-meko); border-radius: 4px; padding: 0.9rem 1rem; }
+.pitanje h3 { font-size: var(--t-1); margin-bottom: 0.25rem; }
+
+/* naslovni slajd */
+.naslovni { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 2.4rem; align-items: center; padding-top: 1rem; }
+.naslovni > * { min-width: 0; }
+.naslovni h1 { font-size: var(--t-5); letter-spacing: -0.01em; margin: 0.4rem 0 0.9rem; }
+.naslovni .teza { font-size: var(--t-3); font-family: var(--f-naslov); line-height: 1.3; }
+.naslovni .uvod { margin-top: 1rem; color: var(--siva); }
+@media (max-width: 900px) { .naslovni { grid-template-columns: minmax(0, 1fr); } }
+
+/* list papira: pravilo za model na papiru */
+.papir {
+  margin: 0; background-color: var(--list); border: 1px solid var(--linija); border-radius: 4px;
+  padding: 1rem 1.2rem 1.2rem 2.4rem; position: relative; line-height: 1.75rem;
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.75rem - 1px), var(--linija) calc(1.75rem - 1px), var(--linija) 1.75rem);
+  background-position: 0 2.55rem;
+}
+.papir::before { content: ""; position: absolute; left: 1.5rem; top: 0; bottom: 0; width: 2px; background: var(--margina); }
+.papir figcaption { font-family: var(--f-mono); font-size: var(--t-0); color: var(--siva); letter-spacing: 0.04em; text-transform: uppercase; line-height: 1.75rem; }
+.papir p, .papir li { font-family: var(--f-naslov); font-size: 1.08rem; }
+.papir ul { list-style: none; margin: 0; padding: 0 0 0 1.2rem; }
+.papir li::before { content: "→ "; color: var(--narandza); font-family: var(--f-tekst); }
+.papir b { color: var(--narandza); }
+
+/* kartice (pojava, sastavni dijelovi, koraci) */
+.kartice { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); }
+.kartica { background: var(--list); border: 1px solid var(--linija); border-radius: 6px; padding: 1rem; display: grid; gap: 0.6rem; align-content: start; }
+.kartica h3 { font-size: var(--t-2); }
+.kartica svg { width: 100%; height: auto; display: block; }
+.kartica ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.25rem; }
+.kartica .kod-cip { font-family: var(--f-mono); font-size: 0.78rem; color: var(--siva); border-top: 1px dashed var(--linija); padding-top: 0.5rem; }
+.korak-broj { font-family: var(--f-mono); font-weight: 500; color: var(--narandza); }
+
+/* SVG ilustracije: boje iz tokena */
+.il-osa { stroke: var(--siva); stroke-width: 1.5; }
+.il-tekst { fill: var(--siva); font: 13px var(--f-mono); }
+.il-tekst-veci { fill: var(--tinta); font: 600 15px var(--f-tekst); }
+.il-za { fill: var(--za); } .il-protiv { fill: var(--protiv); } .il-neo { fill: var(--neodlucni); }
+.il-prozor { fill: var(--narandza-meko); stroke: var(--narandza); stroke-dasharray: 4 3; }
+.il-strelica { stroke: var(--narandza); stroke-width: 2.5; fill: none; }
+.il-vrh { fill: var(--narandza); }
+.il-domet { fill: none; stroke: var(--narandza); stroke-width: 1.5; stroke-dasharray: 5 4; }
+.il-svijet { fill: var(--svijet); }
+.il-kuca { fill: #eded2f; }
+.il-precrtano { stroke: var(--protiv); stroke-width: 3; }
+.il-oblak { fill: var(--list); stroke: var(--siva); stroke-width: 1.2; }
+
+/* kalkulator jednog susreta */
+.kalk { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 1.5rem; }
+.kalk > * { min-width: 0; }
+@media (max-width: 900px) { .kalk { grid-template-columns: minmax(0, 1fr); } }
+.klizaci { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem 1.2rem; }
+@media (max-width: 520px) { .klizaci { grid-template-columns: minmax(0, 1fr); } }
+.klizac { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+.klizac label { font-family: var(--f-mono); font-size: var(--t-0); }
+.klizac output { font-family: var(--f-mono); font-size: var(--t-0); font-variant-numeric: tabular-nums; }
+.klizac input { grid-column: 1 / -1; width: 100%; accent-color: var(--narandza); }
+.racun { font-family: var(--f-mono); font-size: 0.86rem; line-height: 1.7; background: var(--papir); border-radius: 4px; padding: 0.7rem 0.9rem; overflow-x: auto; white-space: pre; }
+.racun .da { color: var(--za); font-weight: 600; } .racun .ne { color: var(--protiv); font-weight: 600; }
+.dugmad { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+
+/* putanje stava */
+.putanje-okvir { background: var(--svijet); border-radius: 6px; padding: 0.6rem; }
+canvas.putanje { width: 100%; aspect-ratio: 2 / 1; display: block; }
+.izbor { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+.izbor button { border-color: var(--linija); color: var(--siva); }
+.izbor button[aria-pressed="true"] { border-color: var(--narandza); color: var(--list); background: var(--narandza); }
+.legenda { display: flex; gap: 1rem; flex-wrap: wrap; font-size: var(--t-0); color: var(--siva); margin-top: 0.4rem; }
+.legenda i { display: inline-block; width: 0.8em; height: 0.8em; border-radius: 50%; margin-right: 0.35em; vertical-align: -0.05em; }
+.potpis { font-size: var(--t-0); color: var(--siva); margin-top: 0.4rem; }
+.potpis b { color: var(--tinta); font-weight: 600; }
+
+/* grafikoni iz mjerenja */
+svg.grafik { width: 100%; height: auto; display: block; overflow: visible; }
+.g-mreza { stroke: var(--linija); stroke-width: 1; } .g-os { stroke: var(--siva); stroke-width: 1; }
+.g-oznaka { fill: var(--siva); font: 12px var(--f-mono); } .g-naslov-x { fill: var(--siva); font: 12px var(--f-tekst); }
+.g-vrijednost { fill: var(--tinta); font: 500 12px var(--f-mono); }
+.g-raspon { stroke: var(--narandza); stroke-width: 3; stroke-linecap: round; opacity: 0.35; }
+.g-tacka { fill: var(--narandza); }
+.g-ref { stroke: var(--siva); stroke-width: 1.2; stroke-dasharray: 4 4; }
+.g-ref-tekst { fill: var(--siva); font: italic 12px var(--f-tekst); }
+
+/* kod */
+.kodovi { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; }
+.kodovi > * { min-width: 0; }
+@media (max-width: 900px) { .kodovi { grid-template-columns: minmax(0, 1fr); } }
+.kod { background: var(--list); border: 1px solid var(--linija); border-radius: 6px; overflow: hidden; }
+.kod .jezik { font-family: var(--f-mono); font-size: var(--t-0); padding: 0.4rem 0.8rem; border-bottom: 1px solid var(--linija); color: var(--siva); }
+.kod pre { margin: 0; padding: 0.8rem; overflow-x: auto; }
+.kod code { font-size: 14px; line-height: 1.55; white-space: pre; }
+.kod .kom { color: var(--siva); font-style: italic; }
+.kod mark { background: var(--narandza-meko); color: inherit; border-radius: 2px; padding: 0 0.15em; }
+.kod mark b { color: var(--narandza); font-family: var(--f-tekst); }
+.oblacici { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 1rem; margin-top: 1rem; }
+.oblacici div { border-left: 3px solid var(--narandza); padding-left: 0.8rem; }
+.oblacici b.br { font-family: var(--f-mono); color: var(--narandza); margin-right: 0.3rem; }
+
+/* probaj */
+.veze { display: grid; gap: 0.7rem; }
+.veze a { display: block; text-decoration: none; background: var(--list); border: 1px solid var(--linija); border-radius: 6px; padding: 0.8rem 1rem; color: var(--tinta); }
+.veze a:hover { border-color: var(--narandza); }
+.veze a b { color: var(--narandza); }
+.veze a span { display: block; color: var(--siva); font-size: var(--t-0); }
+.literatura { margin: 0; padding-left: 1.2rem; display: grid; gap: 0.35rem; font-size: 0.92rem; }
+
+/* donja navigacija */
+.navigacija { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--papir); border-top: 1px solid var(--linija);
+  padding-bottom: env(safe-area-inset-bottom, 0px); }
+.navigacija .okvir { display: flex; align-items: center; gap: 0.8rem; padding-block: 0.5rem; }
+.navigacija .naslov-slajda { flex: 1; min-width: 0; font-size: var(--t-0); color: var(--siva); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.navigacija .broj { font-family: var(--f-mono); font-size: var(--t-0); font-variant-numeric: tabular-nums; }
+.napredak { position: absolute; top: -1px; left: 0; height: 2px; background: var(--narandza); transition: width 0.25s; }
+main.citanje ~ .navigacija { display: none; }
+@media (prefers-reduced-motion: reduce) { .napredak { transition: none; } }
+
+</style>
+<style>
+/* boje strategija rasta (iste vrijednosti kao paleta u pr-izmjereno, svijetli i tamni način) */
+:root { --r-p1: #eb6834; --r-p15: #2a78d6; --r-p2: #1baf7a; --r-kop: #eda100; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --r-p1: #d95926; --r-p15: #3987e5; --r-p2: #199e70; --r-kop: #c98500; }
+}
+:root[data-theme="dark"] { --r-p1: #d95926; --r-p15: #3987e5; --r-p2: #199e70; --r-kop: #c98500; }
+.c-p1 { --c: var(--r-p1); } .c-p15 { --c: var(--r-p15); } .c-p2 { --c: var(--r-p2); } .c-ref { --c: var(--siva); }
+i.boja { display: inline-block; width: 0.8em; height: 0.8em; border-radius: 50%; margin-right: 0.4em; vertical-align: -0.05em;
+  background: var(--c); box-shadow: 0 0 0 1.5px var(--list); }
+i.kv { display: inline-block; width: 0.9em; height: 0.9em; border-radius: 2px; margin-right: 0.35em; vertical-align: -0.1em; }
+i.kv.el { background: var(--siva); } i.kv.kop { background: var(--r-kop); }
+i.kv.prazno { border: 1px dashed var(--siva); } i.kv.novi { border: 2px solid var(--tinta); }
+/* grafikoni */
+.g-linija { fill: none; stroke: var(--c); stroke-width: 2; stroke-linejoin: round; }
+.g-linija.crtkano { stroke-dasharray: 6 4; stroke-width: 1.5; }
+.g-pojas { fill: var(--c); opacity: 0.2; stroke: none; }
+.g-tck { fill: var(--c); stroke: var(--list); stroke-width: 2; }
+.g-tck.oznaka { stroke: var(--tinta); stroke-width: 1.5; }
+.g-ime { fill: var(--tinta); font: 500 12px var(--f-tekst); }
+.g-vert { stroke: var(--tinta); stroke-width: 1; stroke-dasharray: 3 3; }
+/* niz u simulaciji */
+.g-el { fill: var(--c); } .g-kop { fill: var(--r-kop); }
+.g-prazno { fill: none; stroke: var(--siva); stroke-width: 1; stroke-dasharray: 2 2; }
+.g-novi { fill: none; stroke: var(--tinta); stroke-width: 2; }
+.g-stup { fill: var(--c); }
+.g-stup.svjez { fill: var(--r-kop); }
+.g-stari { fill: var(--siva); } .g-strelica { stroke: var(--r-kop); stroke-width: 1.5; fill: none; }
+.g-slovo { fill: var(--list); font: 500 12px var(--f-mono); }
+.g-opis { fill: var(--siva); font: 12px var(--f-tekst); }
+.rast-redovi { display: grid; gap: 0.8rem; margin-top: 0.8rem; }
+.rast-red { display: grid; grid-template-columns: minmax(0, 17rem) minmax(0, 1.3fr) minmax(0, 1fr); gap: 0.5rem 1.2rem; align-items: start;
+  background: var(--list); border: 1px solid var(--linija); border-left: 4px solid var(--c); border-radius: 6px; padding: 0.55rem 0.9rem; }
+.rast-red > * { min-width: 0; }
+@media (max-width: 900px) { .rast-red { grid-template-columns: minmax(0, 1fr); } }
+.rast-red h3 { font-size: var(--t-2); margin-bottom: 0.2rem; }
+.stat { font-family: var(--f-mono); font-size: 0.78rem; display: grid; grid-template-columns: auto auto auto auto; gap: 0 0.6rem; margin: 0; justify-content: start; }
+.stat dt { color: var(--siva); } .stat dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.stat dd.jako { color: var(--tinta); font-weight: 500; }
+.dogadjaj { font-size: var(--t-0); color: var(--siva); margin-top: 0.3rem; }
+.dogadjaj.svjez { color: var(--narandza); font-weight: 600; }
+.mali-naslov { font-family: var(--f-mono); font-size: 0.72rem; color: var(--siva); margin-bottom: 0.2rem; }
+.brojac-n { font-family: var(--f-mono); font-size: var(--t-2); font-variant-numeric: tabular-nums; }
+.brojac-n b { color: var(--narandza); }
+.racun b { color: var(--narandza); }
+.racun .da { color: var(--za); font-weight: 600; }
+.kod code { tab-size: 4; -moz-tab-size: 4; }
+.cipovi { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.5rem 0; }
+.cipovi span { font-family: var(--f-mono); font-size: 0.8rem; background: var(--papir); border: 1px solid var(--linija); border-radius: 3px; padding: 0.05rem 0.35rem; font-variant-numeric: tabular-nums; }
+.tabela-okvir { overflow-x: auto; }
+table.mjere { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+table.mjere th, table.mjere td { border-bottom: 1px solid var(--linija); padding: 0.28rem 0.4rem; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.mjere th { font-weight: 600; font-size: var(--t-0); color: var(--siva); vertical-align: bottom; }
+table.mjere th:first-child, table.mjere td:first-child { text-align: left; }
+@media (max-width: 520px) { table.mjere { font-size: 0.74rem; } table.mjere th, table.mjere td { padding: 0.25rem 0.2rem; } }
+details { background: var(--list); border: 1px solid var(--linija); border-radius: 6px; padding: 0.7rem 1rem; }
+details summary { cursor: pointer; font-weight: 600; color: var(--narandza); }
+details[open] summary { margin-bottom: 0.4rem; }
+details p + p { margin-top: 0.4rem; }
+.pitanja { display: grid; gap: 1rem; }
+.pitanja h3 { font-size: var(--t-2); margin-bottom: 0.4rem; }
+.oznaka-obj { font-family: var(--f-mono); font-size: var(--t-0); color: var(--siva); text-transform: uppercase; letter-spacing: 0.06em; }
+</style>
+</head>
+<body>
+
+<header class="vrh">
+  <div class="okvir">
+    <span><span class="oznaka">SPA · V04 · mini</span> &nbsp;<b>Rast niza pri dodavanju</b></span>
+    <div class="nacin" role="group" aria-label="Način prikaza">
+      <button type="button" id="nacin-prezentacija" aria-pressed="true">Prezentacija</button>
+      <button type="button" id="nacin-citanje" aria-pressed="false">Čitanje</button>
+    </div>
+  </div>
+</header>
+
+<main class="prezentacija" id="slajdovi">
+
+<!-- 1 ============================================================ -->
+<section class="slajd" id="s1" data-naslov="Niz je pun">
+  <div class="okvir">
+    <div class="glava">
+      <span class="oznaka">Strukture podataka i algoritmi · vježbe 4 · analiza algoritama</span>
+      <h1 style="font-size:clamp(1.9rem, 8vw, var(--t-5))">Niz je pun. Za koliko ga proširiti?</h1>
+      <p class="podnaslov">Niz je jedan kontinuiran blok memorije i ne može se produžiti na istom mjestu. Kad se napuni,
+        pravi se novi, veći niz i u njega se kopiraju svi dosadašnji elementi. Pitanje je koliko veći.</p>
+    </div>
+    <div class="dvije">
+      <div class="tekst">
+        <figure class="papir" style="margin:0">
+          <figcaption>Šta radi prosiriListu kad je brojac == max</figcaption>
+          <ul>
+            <li>alocira se novi niz većeg kapaciteta (<b>new</b>)</li>
+            <li>kopira se svih <b>brojac</b> elemenata</li>
+            <li>stari niz se oslobađa (<b>delete[]</b>)</li>
+            <li>tek tada se upisuje novi element</li>
+          </ul>
+        </figure>
+        <div class="panel"><div id="s1-slika"></div>
+          <p class="potpis">Proširenje sa 4 na 8: kopiraju se 4 elementa, pa se upisuje peti. Što je niz veći, proširenje više košta.</p></div>
+      </div>
+      <div class="tekst">
+        <div class="pitanje"><h3>Pitanje s predavanja P01 (05.10.2026)</h3>
+          <p>Za koliko proširiti niz kad je pun? Jedan odgovor je bio „za 1“, a drugi „za 50 % ili 100 %“.
+            Predavač je rekao da se u praksi koristi 50 % ili duplo. Na vježbama V01 <code>prosiriListu</code>
+            udvostručuje kapacitet. Ovdje poredimo sve tri mogućnosti.</p></div>
+        <div class="kartice" style="grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr))">
+          <div class="kartica c-p1"><h3><i class="boja"></i>+1</h3><p class="mala">za jedno mjesto</p><div class="kod-cip">max + 1</div></div>
+          <div class="kartica c-p15"><h3><i class="boja"></i>×1,5</h3><p class="mala">za 50 %</p><div class="kod-cip">max + max/2 (najmanje +1)</div></div>
+          <div class="kartica c-p2"><h3><i class="boja"></i>×2</h3><p class="mala">za 100 %, kao <code>prosiriListu</code></p><div class="kod-cip">max * 2</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="kodovi" style="margin-top:1.2rem">
+      <div class="kod"><div class="jezik">C++ · ListaSekv.h (V01)</div><pre><code><span class="kom">// prosirenje niza (dupliranje kapaciteta) kad se niz napuni</span>
+void prosiriListu()
+{
+	int newMax = max * 2;
+	Tip* novi = new Tip[newMax];
+	<mark>for (int i = 0; i &lt; brojac; i++)</mark>
+	{
+		novi[i] = N[i];
+	}
+	delete[] N;
+	N = novi;
+	max = newMax;
+	cout &lt;&lt; "  LISTA: prosirenje - novi kapacitet je " &lt;&lt; newMax &lt;&lt; endl;
+}</code></pre></div>
+      <div class="kod"><div class="jezik">C++ · Analiza.h (V04)</div><pre><code>enum class Rast { PlusJedan, PutaJedanIPo, PutaDva };
+
+<span class="kom">// DATO: novi kapacitet za izabranu strategiju</span>
+long long noviKapacitet(long long max, Rast rast)
+{
+	if (rast == Rast::PlusJedan)
+		return max + 1;
+	if (rast == Rast::PutaDva)
+		return max * 2;
+	long long dodatak = max / 2; <span class="kom">// x 1,5 (najmanje + 1)</span>
+	return max + (dodatak &gt; 0 ? dodatak : 1);
+}</code></pre></div>
+    </div>
+  </div>
+</section>
+
+<!-- 2 ============================================================ -->
+<section class="slajd" id="s2" data-naslov="Simulacija: dodaj jedan po jedan">
+  <div class="okvir">
+    <div class="glava">
+      <span class="oznaka">Živi primjer · simulacija u web pregledniku</span>
+      <h2>Isti elementi, tri strategije rasta</h2>
+      <p class="podnaslov">Svaki klik dodaje isti broj elemenata u sva tri niza. Početni kapacitet je 1, kao u
+        <code>kopiranjaPriRastu</code>. Pratite koliko se puta niz proširi i koliko se elemenata ukupno kopira.</p>
+    </div>
+    <div class="interaktivno">
+      <div class="dugmad">
+        <button type="button" id="sim-1" class="glavno">Dodaj</button>
+        <button type="button" id="sim-10">Dodaj 10</button>
+        <button type="button" id="sim-auto" aria-pressed="false">Pokreni</button>
+        <button type="button" id="sim-0">Ispočetka</button>
+        <span class="brojac-n" aria-live="polite">dodano: n = <b id="sim-n">0</b> <span class="mala siva" id="sim-max"></span></span>
+      </div>
+      <p class="legenda"><span><i class="kv el"></i>element (u boji strategije)</span><span><i class="kv kop"></i>kopiran pri proširenju u zadnjem kliku</span>
+        <span><i class="kv novi"></i>zadnji dodani</span><span><i class="kv prazno"></i>slobodno mjesto</span></p>
+      <div class="rast-redovi" id="sim-redovi"></div>
+      <p class="potpis">Ilustracija: ista pravila kao <code>noviKapacitet</code> i <code>kopiranjaPriRastu</code> iz <code>Analiza.h</code>.
+        „Po elementu“ je ukupno kopirano / n. Desni grafikon: koliko je elemenata kopirano pri svakom pojedinom dodavanju, od 1. do 100. (ista skala za sva tri reda).</p>
+    </div>
+  </div>
+</section>
+
+<!-- 3 ============================================================ -->
+<section class="slajd" id="s3" data-naslov="Kalkulator: ukupno kopiranja">
+  <div class="okvir">
+    <div class="glava">
+      <span class="oznaka">Kalkulator · broj kopiranja za n dodavanja</span>
+      <h2>+1 kopira n(n − 1)/2, a ×2 manje od 2n</h2>
+      <p class="podnaslov">Broj kopiranja računa JavaScript istom petljom kao <code>kopiranjaPriRastu</code>. Za n koje je izmjereno
+        u C++ programu rezultat se poredi s njegovim (v04-mjerenje.json).</p>
+    </div>
+    <div class="kalk interaktivno">
+      <div>
+        <div class="klizaci" style="grid-template-columns:minmax(0,1fr)">
+          <div class="klizac"><label for="k-n">broj dodavanja n (logaritamski klizač)</label><output id="k-on"></output>
+            <input type="range" id="k-n" min="0" max="500" step="1" value="200"></div>
+        </div>
+        <div class="izbor" id="k-izbor" role="group" aria-label="n iz mjerenja" style="margin-top:0.5rem"></div>
+        <div class="racun" id="k-racun" aria-live="polite"></div>
+      </div>
+      <figure style="margin:0">
+        <div class="panel"><div id="k-graf"></div></div>
+        <div class="legenda"><span class="c-p15"><i class="boja"></i>×1,5</span><span class="c-p2"><i class="boja"></i>×2</span>
+          <span>tačke: C++ program (JSON)</span></div>
+        <figcaption class="potpis" id="k-potpis"></figcaption>
+      </figure>
+    </div>
+    <div class="kodovi" style="margin-top:1.2rem">
+      <div class="kod"><div class="jezik">C++ · Analiza.h</div><pre><code>long long kopiranjaPriRastu(int n, Rast rast)
+{
+	long long max = 1, brojac = 0, kopirano = 0;
+	for (int i = 0; i &lt; n; i++)
+	{
+		if (brojac == max)
+		{
+			<mark>kopirano += brojac;</mark> <span class="kom">// prosirenje kopira sve dosadasnje elemente</span>
+			max = noviKapacitet(max, rast);
+		}
+		brojac++;
+	}
+	return kopirano;
+}</code></pre></div>
+      <div class="oblacici" style="margin-top:0;align-content:start">
+        <div><b class="br">+1</b>Proširenje je pri svakom dodavanju: kopira se 1, pa 2, pa 3, … , pa n − 1 elemenata.
+          Zbir je n(n − 1)/2, dakle O(n²) za n dodavanja.</div>
+        <div><b class="br">×2</b>Proširenja kopiraju 1, 2, 4, 8, … elemenata. Svako je duplo veće od prethodnog, pa je zbir svih
+          manji od dvostrukog zadnjeg, a zadnji je manji od n. Ukupno je manje od 2n.</div>
+        <div><b class="br">prosjek</b>Pojedino proširenje kod ×2 je O(n), ali je rijetko. Raspoređeno na sva dodavanja, jedno
+          dodavanje u prosjeku kopira manje od 2 elementa: konstantno. To je ideja <b>amortizovane analize</b>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 ============================================================ -->
+<section class="slajd" id="s4" data-naslov="Izmjereno vrijeme">
+  <div class="okvir">
+    <div class="glava">
+      <span class="oznaka">Izmjereno · C++, stvarno kopiranje</span>
+      <h2 id="v-naslov">Vrijeme n dodavanja</h2>
+      <p class="podnaslov" id="v-uvod"></p>
+    </div>
+    <div class="dvije">
+      <figure style="margin:0" class="interaktivno">
+        <div class="izbor" id="v-build" role="group" aria-label="Način prevođenja"></div>
+        <div class="izbor" id="v-skala" role="group" aria-label="Skala grafikona"></div>
+        <div class="panel"><div id="v-graf"></div></div>
+        <div class="legenda"><span class="c-p1"><i class="boja"></i>+1</span><span class="c-p15"><i class="boja"></i>×1,5</span>
+          <span class="c-p2"><i class="boja"></i>×2</span><span>isprekidano: c·n² kroz zadnju tačku +1 (poređenje, nije mjereno)</span></div>
+        <figcaption class="potpis" id="v-potpis"></figcaption>
+      </figure>
+      <div class="tekst">
+        <div class="panel"><p class="mala siva" style="margin-bottom:0.4rem">Medijan vremena (ms) za n dodavanja</p>
+          <div class="tabela-okvir"><table class="mjere" id="v-tabela"></table></div></div>
+        <div class="pitanje"><h3>Kad se n udvostruči</h3><p id="v-omjeri"></p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 ============================================================ -->
+<section class="slajd" id="s5" data-naslov="Cijena većeg rasta: prazan prostor">
+  <div class="okvir">
+    <div class="glava">
+      <span class="oznaka">Prostor · kapacitet − n</span>
+      <h2>Veći rast znači manje kopiranja, ali više praznih mjesta</h2>
+      <p class="podnaslov">Odmah nakon proširenja novi niz je skoro prazan. Udio slobodnih mjesta u kapacitetu zavisi od faktora rasta.
+        Kod +1 slobodnih mjesta nema, ali kopiranja je n(n − 1)/2.</p>
+    </div>
+    <div class="dvije">
+      <figure style="margin:0">
+        <div class="panel"><div id="p-graf"></div></div>
+        <div class="legenda"><span class="c-p15"><i class="boja"></i>×1,5</span><span class="c-p2"><i class="boja"></i>×2</span>
+          <span>tačke: C++ program (JSON)</span></div>
+        <figcaption class="potpis" id="p-potpis"></figcaption>
+      </figure>
+      <div class="tekst">
+        <div class="panel"><p class="mala siva" style="margin-bottom:0.4rem">Kapacitet i slobodna mjesta (C++, <code>rast.kopiranja</code>)</p>
+          <div class="tabela-okvir"><table class="mjere" id="p-tabela"></table></div>
+          <p class="potpis" id="p-tabela-potpis"></p></div>
+        <div class="panel">
+          <h3 style="font-size:var(--t-1);margin-bottom:0.3rem">Izmjereno: MSVC <code>std::vector&lt;int&gt;</code></h3>
+          <p class="mala" id="p-vector-uvod"></p>
+          <div class="cipovi" id="p-vector"></div>
+          <p class="mala" id="p-vector-zakljucak"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 ============================================================ -->
+<section class="slajd" id="s6" data-naslov="Pitanja za provjeru">
+  <div class="okvir">
+    <div class="glava">
+      <span class="oznaka">Provjera</span>
+      <h2>Pitanja za provjeru</h2>
+      <p class="podnaslov">Odgovor prvo zapišite, pa ga otvorite.</p>
+    </div>
+    <div class="pitanja">
+      <div><h3 id="q1"></h3><details><summary>Odgovor</summary><p id="o1"></p></details></div>
+      <div><h3>Pojedino proširenje kod ×2 može kopirati pola miliona elemenata. Zašto se onda kaže da je dodavanje u prosjeku konstantno?</h3>
+        <details><summary>Odgovor</summary><p id="o2"></p></details></div>
+      <div><h3 id="q3"></h3><details><summary>Odgovor</summary><p id="o3"></p></details></div>
+    </div>
+    <p class="mala siva" style="margin-top:1.2rem" id="izvor"></p>
+  </div>
+</section>
+
+</main>
+
+<nav class="navigacija" aria-label="Slajdovi">
+  <div class="napredak" id="napredak"></div>
+  <div class="okvir">
+    <button type="button" id="nazad" aria-label="Prethodni slajd">←</button>
+    <span class="broj" id="broj">1 / 6</span>
+    <button type="button" id="naprijed" aria-label="Sljedeći slajd">→</button>
+    <span class="naslov-slajda" id="naslov-slajda"></span>
+  </div>
+</nav>
+
+<script>window.MJERENJE = {"racunar":"Intel Core i7-10750H @ 2,60 GHz, 32 GB RAM, Windows 10, MSVC 19.51 (VS 18), Win32","datum":"27.10.2026.","ponavljanja":10,"program":"deck-izvor/mjerenje/v04_mjerenje.cpp","obrasci":[{"n":10,"linearna":10,"korakDva":5,"unazad":9,"putaDva":4,"ugnijezdjena":100,"zavisna":45,"korijen":5,"logLog":2},{"n":100,"linearna":100,"korakDva":50,"unazad":99,"putaDva":7,"ugnijezdjena":10000,"zavisna":4950,"korijen":14,"logLog":3},{"n":1000,"linearna":1000,"korakDva":500,"unazad":999,"putaDva":10,"ugnijezdjena":1000000,"zavisna":499500,"korijen":45,"logLog":4},{"n":10000,"linearna":10000,"korakDva":5000,"unazad":9999,"putaDva":14,"ugnijezdjena":100000000,"zavisna":49995000,"korijen":141,"logLog":4},{"n":100000,"linearna":100000,"korakDva":50000,"unazad":99999,"putaDva":17,"ugnijezdjena":null,"zavisna":null,"korijen":447,"logLog":5},{"n":1000000,"linearna":1000000,"korakDva":500000,"unazad":999999,"putaDva":20,"ugnijezdjena":null,"zavisna":null,"korijen":1414,"logLog":5}],"rast":{"kopiranja":[{"n":10,"plusJedan":45,"putaJedanIPo":25,"putaDva":15,"kapJedanIPo":13,"kapDva":16},{"n":100,"plusJedan":4950,"putaJedanIPo":284,"putaDva":127,"kapJedanIPo":141,"kapDva":128},{"n":1000,"plusJedan":499500,"putaJedanIPo":2137,"putaDva":1023,"kapJedanIPo":1066,"kapDva":1024},{"n":10000,"plusJedan":49995000,"putaJedanIPo":24284,"putaDva":16383,"kapJedanIPo":12138,"kapDva":16384},{"n":100000,"plusJedan":4999950000,"putaJedanIPo":276521,"putaDva":131071,"kapJedanIPo":138255,"kapDva":131072},{"n":1000000,"plusJedan":499999500000,"putaJedanIPo":2099753,"putaDva":1048575,"kapJedanIPo":1049869,"kapDva":1048576}]},"vectorKapacitet":[0,1,2,3,4,6,9,13,19,28,42,63,94,141,211,316,474,711,1066],"prostor":{"n":1000000,"sizeofInt":4,"sizeofCvor":8,"sizeofPokazivac":4,"listaSekvUkupnoAlocirano":10487752,"listaSekvAlokacija":25,"listaPovAlocirano":8000012,"listaPovAlokacija":1000001},"release":{"build":"Release (/O2, Win32)","red":[{"n":100000,"redSekv":{"med":0.86545,"min":0.742,"max":1.3878},"redPov":{"med":8.60905,"min":7.6484,"max":9.7397},"stdQueue":{"med":2.8872,"min":2.4411,"max":4.931}},{"n":1000000,"redSekv":{"med":7.09495,"min":6.8089,"max":8.9629},"redPov":{"med":70.5119,"min":69.4008,"max":73.2099},"stdQueue":{"med":23.4518,"min":22.518,"max":23.9085}}],"getPetlja":[{"n":1000,"listaSekv":{"med":0.00145,"min":0.0013,"max":0.0213},"listaPov":{"med":0.42885,"min":0.4269,"max":0.5833}},{"n":2000,"listaSekv":{"med":0.0027,"min":0.0027,"max":0.0028},"listaPov":{"med":2.02815,"min":1.8528,"max":2.6315}},{"n":4000,"listaSekv":{"med":0.0054,"min":0.0054,"max":0.0056},"listaPov":{"med":10.4354,"min":9.6097,"max":11.0081}},{"n":8000,"listaSekv":{"med":0.0108,"min":0.0107,"max":0.0109},"listaPov":{"med":46.5457,"min":43.662,"max":50.6201}},{"n":16000,"listaSekv":{"med":0.0215,"min":0.0214,"max":0.022},"listaPov":{"med":208.029,"min":189.634,"max":255.844}}],"rastVrijeme":[{"n":1000,"plusJedan":{"med":0.23985,"min":0.2219,"max":0.308},"putaJedanIPo":{"med":0.00355,"min":0.0031,"max":0.0098},"putaDva":{"med":0.00205,"min":0.0019,"max":0.011}},{"n":2000,"plusJedan":{"med":0.50345,"min":0.4858,"max":0.6522},"putaJedanIPo":{"med":0.0042,"min":0.004,"max":0.0053},"putaDva":{"med":0.0026,"min":0.0026,"max":0.0029}},{"n":4000,"plusJedan":{"med":1.2416,"min":1.1423,"max":1.6292},"putaJedanIPo":{"med":0.0061,"min":0.0059,"max":0.0088},"putaDva":{"med":0.004,"min":0.0038,"max":0.0063}},{"n":8000,"plusJedan":{"med":11.5467,"min":9.8983,"max":39.5198},"putaJedanIPo":{"med":0.0128,"min":0.0082,"max":0.0356},"putaDva":{"med":0.01025,"min":0.006,"max":0.027}},{"n":16000,"plusJedan":{"med":43.7076,"min":42.7315,"max":45.7306},"putaJedanIPo":{"med":0.10365,"min":0.0862,"max":0.1776},"putaDva":{"med":0.03775,"min":0.0109,"max":0.0651}},{"n":32000,"plusJedan":{"med":185.016,"min":169.761,"max":187.833},"putaJedanIPo":{"med":0.15305,"min":0.0374,"max":0.3387},"putaDva":{"med":0.0207,"min":0.0194,"max":0.1184}}]},"debug":{"build":"Debug (/Od /RTC1, Win32)","red":[{"n":100000,"redSekv":{"med":2.15715,"min":1.8422,"max":3.3404},"redPov":{"med":29.1091,"min":26.8115,"max":31.2938},"stdQueue":{"med":37.5032,"min":31.6136,"max":46.0832}},{"n":1000000,"redSekv":{"med":20.9536,"min":19.3836,"max":23.1179},"redPov":{"med":297.961,"min":292.795,"max":323.19},"stdQueue":{"med":391.116,"min":328.789,"max":404.145}}],"getPetlja":[{"n":1000,"listaSekv":{"med":0.0054,"min":0.0053,"max":0.0056},"listaPov":{"med":1.47165,"min":1.3771,"max":1.8943}},{"n":2000,"listaSekv":{"med":0.0107,"min":0.0106,"max":0.0109},"listaPov":{"med":7.38025,"min":6.4311,"max":9.631}},{"n":4000,"listaSekv":{"med":0.0213,"min":0.0212,"max":0.0217},"listaPov":{"med":31.0273,"min":29.3952,"max":42.1057}},{"n":8000,"listaSekv":{"med":0.0548,"min":0.053,"max":0.0738},"listaPov":{"med":166.516,"min":145.629,"max":187.319}},{"n":16000,"listaSekv":{"med":0.1184,"min":0.0987,"max":0.151},"listaPov":{"med":667.655,"min":640.373,"max":714.167}}],"rastVrijeme":[{"n":1000,"plusJedan":{"med":1.10835,"min":1.0445,"max":1.7392},"putaJedanIPo":{"med":0.0107,"min":0.0104,"max":0.0351},"putaDva":{"med":0.0068,"min":0.0066,"max":0.0072}},{"n":2000,"plusJedan":{"med":3.75605,"min":3.5635,"max":4.8413},"putaJedanIPo":{"med":0.01925,"min":0.0188,"max":0.0231},"putaDva":{"med":0.012,"min":0.0118,"max":0.0192}},{"n":4000,"plusJedan":{"med":15.4741,"min":13.6246,"max":20.9249},"putaJedanIPo":{"med":0.03375,"min":0.032,"max":0.0839},"putaDva":{"med":0.0196,"min":0.0189,"max":0.0206}},{"n":8000,"plusJedan":{"med":60.2605,"min":57.0315,"max":100.698},"putaJedanIPo":{"med":0.05035,"min":0.0447,"max":0.1027},"putaDva":{"med":0.0327,"min":0.0316,"max":0.0602}},{"n":16000,"plusJedan":{"med":241.305,"min":231.89,"max":280.553},"putaJedanIPo":{"med":0.1107,"min":0.104,"max":0.1992},"putaDva":{"med":0.0769,"min":0.0691,"max":0.1433}},{"n":32000,"plusJedan":{"med":981.15,"min":937.578,"max":1153.29},"putaJedanIPo":{"med":0.32595,"min":0.1857,"max":0.4592},"putaDva":{"med":0.2113,"min":0.1287,"max":0.411}}]}};</script>
+<script>
+// Zajednički dio lekcija (isti kao u mini-prezentacijama blokova s vježbi 3): jedan slajd na ekranu ili svi jedan
+// ispod drugog (način „Čitanje“), strelice i prevlačenje, adresa #sN, zapamćen način prikaza.
+// Upotreba: Prezentacija("lekcija1", crtajVidljivo), gdje crtajVidljivo iscrta grafike na vidljivim slajdovima.
+window.Prezentacija = function (kljuc, crtajVidljivo) {
+  const $ = s => document.querySelector(s);
+  const main = $("#slajdovi"), slajdovi = [...document.querySelectorAll(".slajd")];
+  let tren = 0;
+  function prikazi(i, izHasha) {
+    tren = Math.max(0, Math.min(slajdovi.length - 1, i));
+    slajdovi.forEach((s, k) => s.classList.toggle("aktivan", k === tren));
+    $("#broj").textContent = `${tren + 1} / ${slajdovi.length}`;
+    $("#naslov-slajda").textContent = slajdovi[tren].dataset.naslov;
+    $("#napredak").style.width = `${((tren + 1) / slajdovi.length) * 100}%`;
+    $("#nazad").disabled = tren === 0; $("#naprijed").disabled = tren === slajdovi.length - 1;
+    if (!izHasha) { try { history.replaceState(null, "", "#" + slajdovi[tren].id); } catch (e) {} }
+    if (main.classList.contains("prezentacija")) window.scrollTo(0, 0);
+    crtajVidljivo();
+  }
+  $("#nazad").addEventListener("click", () => prikazi(tren - 1));
+  $("#naprijed").addEventListener("click", () => prikazi(tren + 1));
+  document.addEventListener("keydown", e => {
+    if (!main.classList.contains("prezentacija") || e.target.closest("input, textarea, select")) return;
+    if (["ArrowRight", "PageDown"].includes(e.key) || (e.key === " " && !e.target.closest("button"))) { e.preventDefault(); prikazi(tren + 1); }
+    if (["ArrowLeft", "PageUp"].includes(e.key)) { e.preventDefault(); prikazi(tren - 1); }
+    if (e.key === "Home") prikazi(0);
+    if (e.key === "End") prikazi(slajdovi.length - 1);
+  });
+  let dodirX = null;
+  main.addEventListener("touchstart", e => { dodirX = e.touches[0].clientX; }, { passive: true });
+  main.addEventListener("touchend", e => {
+    if (dodirX === null || !main.classList.contains("prezentacija")) return;
+    const dx = e.changedTouches[0].clientX - dodirX; dodirX = null;
+    if (e.target.closest("input, select, canvas, .interaktivno")) return;
+    if (Math.abs(dx) > 70) prikazi(tren + (dx < 0 ? 1 : -1));
+  });
+  function nacin(citanje) {
+    main.classList.toggle("citanje", citanje); main.classList.toggle("prezentacija", !citanje);
+    $("#nacin-citanje").setAttribute("aria-pressed", citanje); $("#nacin-prezentacija").setAttribute("aria-pressed", !citanje);
+    try { localStorage.setItem(kljuc + "-nacin", citanje ? "citanje" : "prezentacija"); } catch (e) {}
+    if (citanje) requestAnimationFrame(() => slajdovi[tren].scrollIntoView());
+    crtajVidljivo();
+  }
+  $("#nacin-citanje").addEventListener("click", () => nacin(true));
+  $("#nacin-prezentacija").addEventListener("click", () => nacin(false));
+  addEventListener("resize", () => crtajVidljivo());
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => crtajVidljivo());
+
+  let pocetni = 0;
+  const h = location.hash.replace("#", ""), k = slajdovi.findIndex(s => s.id === h); if (k >= 0) pocetni = k;
+  let sacuvano = null; try { sacuvano = localStorage.getItem(kljuc + "-nacin"); } catch (e) {}
+  if (sacuvano === "citanje") nacin(true);
+  prikazi(pocetni, true);
+  if (main.classList.contains("prezentacija")) setTimeout(() => window.scrollTo(0, 0), 0);
+  addEventListener("hashchange", () => {
+    const i = slajdovi.findIndex(s => s.id === location.hash.replace("#", ""));
+    if (i >= 0 && i !== tren) { prikazi(i, true); if (main.classList.contains("citanje")) slajdovi[i].scrollIntoView(); }
+  });
+  return { prikazi };
+};
+
+// Zajedničke pomoćne funkcije za grafike (SVG) i brojeve.
+window.Pomoc = (() => {
+  const SVG = "http://www.w3.org/2000/svg";
+  const el = (ime, atr = {}, tekst) => { const e = document.createElementNS(SVG, ime); for (const [k, v] of Object.entries(atr)) e.setAttribute(k, v); if (tekst !== undefined) e.textContent = tekst; return e; };
+  const zarez = (x, d = 2) => x.toFixed(d).replace(".", ",").replace("-", "−");
+  const pct = x => `${Math.round(x * 100)}%`;
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  // mulberry32: ponovljivi slučajni brojevi za ilustracije u web pregledniku
+  const rng = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  return { el, zarez, pct, css, rng };
+})();
+
+</script>
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const { el, zarez } = window.Pomoc, D = window.MJERENJE;
+
+  // ---------------- brojevi: tačka za hiljade, decimalni zarez ----------------
+  const broj = (x, d = 0) => { const [c, f] = zarez(x, d).split(","); return c.replace(/\B(?=(\d{3})+(?!\d))/g, ".") + (f !== undefined ? "," + f : ""); };
+  const ms = x => broj(x, x < 0.01 ? 4 : x < 0.1 ? 3 : x < 10 ? 2 : x < 100 ? 1 : 0);
+  const pct = (p, d = 1) => broj(p * 100, d) + " %";
+  const nadeksi = s => String(s).replace(/\d/g, c => "⁰¹²³⁴⁵⁶⁷⁸⁹"[c]);
+  const nLijepo = n => { const e = Math.round(Math.log10(n)); return n >= 1e5 && 10 ** e === n ? "10" + nadeksi(e) : broj(n); };
+  const html = (tag, atr = {}, tekst) => { const e = document.createElement(tag); Object.assign(e, atr); if (tekst !== undefined) e.textContent = tekst; return e; };
+  const pola = m => Math.floor(m / 2);
+  const dvijeCifre = x => { const e = 10 ** (Math.floor(Math.log10(x)) - 1); return Math.round(x / e) * e; };   // 8.938 → 8.900
+  const dolje3 = x => Math.floor(x * 1000) / 1000;   // odsijecanje, da 1,99999 ne postane 2,000
+
+  // ---------------- strategije: ista pravila kao noviKapacitet (Analiza.h) ----------------
+  const STR = [
+    { k: "plusJedan", ime: "+1", opis: "za jedno mjesto", kl: "c-p1", novi: m => m + 1 },
+    { k: "putaJedanIPo", ime: "×1,5", opis: "za 50 %", kl: "c-p15", novi: m => m + (pola(m) > 0 ? pola(m) : 1), kap: "kapJedanIPo" },
+    { k: "putaDva", ime: "×2", opis: "za 100 %", kl: "c-p2", novi: m => m * 2, kap: "kapDva" },
+  ];
+  const SK = Object.fromEntries(STR.map(s => [s.k, s]));
+  // isto kao kopiranjaPriRastu; vraća i kapacitet, broj proširenja i najveće pojedino kopiranje
+  function kopiranja(n, novi) {
+    let max = 1, brojac = 0, kop = 0, pros = 0, najvece = 0;
+    for (let i = 0; i < n; i++) {
+      if (brojac === max) { kop += brojac; najvece = brojac; pros++; max = novi(max); }
+      brojac++;
+    }
+    return { kop, max, pros, najvece };
+  }
+  const RK = D.rast.kopiranja, NJ = RK.map(r => r.n);
+  // provjera: JavaScript simulacija mora dati iste brojeve kao C++ program
+  const slazeSe = r => STR.every(s => kopiranja(r.n, s.novi).kop === r[s.k]) &&
+    kopiranja(r.n, SK.putaDva.novi).max === r.kapDva && kopiranja(r.n, SK.putaJedanIPo.novi).max === r.kapJedanIPo;
+  const provjera = Object.fromEntries(RK.map(r => [r.n, slazeSe(r)]));
+  RK.forEach(r => console.assert(provjera[r.n], "JS i C++ se ne slažu za n = " + r.n));
+
+  // ---------------- linijski grafikon (SVG) ----------------
+  // serije: [{kl, ime, crtkano, bezTacaka, tacke: [{x, y, lo, hi, nap}]}]
+  function grafik(cilj, o) {
+    const c = $(cilj); c.replaceChildren();
+    const W = Math.max(300, Math.min(640, c.clientWidth || 520)), H = Math.round(Math.max(230, Math.min(340, W * 0.6)));
+    const imena = o.imena && W > 420, L = 58, Rm = imena ? 60 : 16, T = 26, B = 40;
+    const sx = o.xLog ? Math.log10 : v => v, sy = o.yLog ? Math.log10 : v => v;
+    const X = v => L + (W - L - Rm) * (sx(v) - sx(o.x0)) / (sx(o.x1) - sx(o.x0));
+    const Y = v => T + (H - T - B) * (1 - (sy(v) - sy(o.y0)) / (sy(o.y1) - sy(o.y0)));
+    const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: "grafik", role: "img", "aria-label": o.opis });
+    o.yTicks.forEach(v => {
+      svg.append(el("line", { x1: L, x2: W - Rm, y1: Y(v), y2: Y(v), class: "g-mreza" }));
+      svg.append(el("text", { x: L - 6, y: Y(v) + 4, "text-anchor": "end", class: "g-oznaka" }, o.fy(v)));
+    });
+    svg.append(el("line", { x1: L, x2: W - Rm, y1: H - B, y2: H - B, class: "g-os" }));
+    o.xTicks.forEach((v, j) => {
+      if (W < 420 && o.xRijetko && j % 2 === 1) return;
+      svg.append(el("text", { x: X(v), y: H - B + 16, "text-anchor": "middle", class: "g-oznaka" }, o.fx ? o.fx(v) : broj(v)));
+    });
+    svg.append(el("text", { x: L + (W - L - Rm) / 2, y: H - 6, "text-anchor": "middle", class: "g-naslov-x" }, o.xNaslov));
+    svg.append(el("text", { x: L, y: T - 12, class: "g-naslov-x" }, o.yNaslov));
+    (o.ref || []).forEach(r => {
+      svg.append(el("line", { x1: L, x2: W - Rm, y1: Y(r.v), y2: Y(r.v), class: "g-ref" }));
+      svg.append(el("text", { x: L + 4, y: Y(r.v) - 5, class: "g-ref-tekst" }, r.tekst));
+    });
+    if (o.vx !== undefined) svg.append(el("line", { x1: X(o.vx), x2: X(o.vx), y1: T, y2: H - B, class: "g-vert" }));
+    const kraj = [];
+    o.serije.forEach(s => {
+      const g = el("g", { class: s.kl }), tt = s.tacke;
+      if (tt.every(t => t.lo !== undefined)) {
+        const p = tt.map(t => `${X(t.x)},${Y(t.hi)}`).concat(tt.slice().reverse().map(t => `${X(t.x)},${Y(t.lo)}`));
+        g.append(el("polygon", { points: p.join(" "), class: "g-pojas" }));
+      }
+      g.append(el("polyline", { points: tt.map(t => `${X(t.x).toFixed(1)},${Y(t.y).toFixed(1)}`).join(" "), class: "g-linija" + (s.crtkano ? " crtkano" : "") }));
+      if (!s.bezTacaka) tt.forEach(t => { const k = el("circle", { cx: X(t.x), cy: Y(t.y), r: 4, class: "g-tck" }); k.append(el("title", {}, t.nap)); g.append(k); });
+      svg.append(g);
+      if (s.ime) { const z = tt[tt.length - 1]; kraj.push({ y: Y(z.y), x: X(z.x), ime: s.ime }); }
+    });
+    (o.oznake || []).forEach(t => {
+      const g = el("g", { class: t.kl }), k = el("circle", { cx: X(t.x), cy: Y(t.y), r: t.r || 4, class: "g-tck oznaka" });
+      k.append(el("title", {}, t.nap)); g.append(k); svg.append(g);
+    });
+    if (imena) {   // imena na kraju linija, razmaknuta da se ne preklapaju
+      kraj.sort((a, b) => a.y - b.y);
+      for (let j = 1; j < kraj.length; j++) kraj[j].y = Math.max(kraj[j].y, kraj[j - 1].y + 14);
+      const visak = kraj.length ? kraj[kraj.length - 1].y - (H - B) : 0;
+      if (visak > 0) kraj.forEach(k => k.y -= visak);
+      kraj.forEach(k => svg.append(el("text", { x: k.x + 8, y: k.y + 4, class: "g-ime" }, k.ime)));
+    }
+    c.append(svg);
+  }
+  const lijepKorak = m => { const e = 10 ** Math.floor(Math.log10(m / 4)); return [1, 2, 2.5, 5, 10].map(f => f * e).find(s => m / s <= 5); };
+  const potencije = (a, b) => { const r = []; for (let v = 10 ** Math.floor(Math.log10(a) + 1e-9); v <= b * 1.0001; v *= 10) r.push(v); return r; };
+
+  // ---------------- slajd 1: slika proširenja 4 → 8 ----------------
+  (function slika() {
+    const W = 420, s = 34, x0 = 20, svg = el("svg", { viewBox: `0 0 ${W} 170`, class: "grafik c-p2", role: "img", "aria-label": "Stari niz od 4 elementa kopira se u novi niz od 8 mjesta" });
+    svg.append(el("text", { x: x0, y: 14, class: "g-opis" }, "stari niz: max = 4, brojac = 4 (pun)"));
+    svg.append(el("text", { x: x0, y: 164, class: "g-opis" }, "novi niz: max = 8 (a, b, c, d kopirani; e upisan; 3 slobodna mjesta)"));
+    "abcd".split("").forEach((c, i) => {
+      svg.append(el("rect", { x: x0 + i * s, y: 22, width: s - 4, height: s - 4, rx: 3, class: "g-stari" }));
+      svg.append(el("text", { x: x0 + i * s + (s - 4) / 2, y: 22 + 20, "text-anchor": "middle", class: "g-slovo" }, c));
+      svg.append(el("line", { x1: x0 + i * s + (s - 4) / 2, y1: 22 + s - 2, x2: x0 + i * s + (s - 4) / 2, y2: 112, class: "g-strelica" }));
+    });
+    for (let i = 0; i < 8; i++) {
+      const x = x0 + i * s, y = 114;
+      if (i < 4) { svg.append(el("rect", { x, y, width: s - 4, height: s - 4, rx: 3, class: "g-kop" })); svg.append(el("text", { x: x + (s - 4) / 2, y: y + 20, "text-anchor": "middle", class: "g-slovo" }, "abcd"[i])); }
+      else if (i === 4) { svg.append(el("rect", { x, y, width: s - 4, height: s - 4, rx: 3, class: "g-el" })); svg.append(el("rect", { x, y, width: s - 4, height: s - 4, rx: 3, class: "g-novi" }));
+        svg.append(el("text", { x: x + (s - 4) / 2, y: y + 20, "text-anchor": "middle", class: "g-slovo" }, "e")); }
+      else svg.append(el("rect", { x: x + 0.5, y: y + 0.5, width: s - 5, height: s - 5, rx: 3, class: "g-prazno" }));
+    }
+    svg.append(el("text", { x: x0 + 4 * s + 6, y: 56, class: "g-opis" }, "kopira se brojac = 4"));
+    svg.append(el("text", { x: x0 + 4 * s + 6, y: 72, class: "g-opis" }, "elementa, pa se upisuje e"));
+    $("#s1-slika").append(svg);
+  })();
+
+  // ---------------- slajd 2: simulacija ----------------
+  const SIM_MAX = 100, PO_REDU = 32;
+  let sim, tajmer = null;
+  function simNovo() { sim = STR.map(s => ({ s, max: 1, brojac: 0, kop: 0, pros: 0, cijene: [], zadnje: null, svjeze: false })); }
+  function simKorak() {
+    if (sim[0].brojac >= SIM_MAX) return false;
+    sim.forEach(z => {
+      let c = 0;
+      if (z.brojac === z.max) {   // pun niz: proširenje kopira svih brojac elemenata
+        c = z.brojac; z.kop += c; z.pros++;
+        const stari = z.max; z.max = z.s.novi(z.max);
+        z.zadnje = { od: stari, na: z.max, kop: c, kad: z.brojac + 1 }; z.svjeze = true;
+      }
+      z.cijene.push(c); z.brojac++;
+    });
+    return true;
+  }
+  function simDodaj(k) { sim.forEach(z => z.svjeze = false); for (let i = 0; i < k; i++) if (!simKorak()) break; crtajSim(); }
+  const redovi = STR.map(s => {
+    const d = html("div", { className: "rast-red " + s.kl });
+    d.innerHTML = `<div><h3><i class="boja"></i>${s.ime} <span class="mala siva" style="font-family:var(--f-tekst);font-weight:400">${s.opis}</span></h3>` +
+      `<dl class="stat"></dl><p class="dogadjaj"></p></div>` +
+      `<div><p class="mali-naslov">niz (kapacitet)</p><div class="niz"></div></div>` +
+      `<div><p class="mali-naslov">kopirano pri svakom dodavanju</p><div class="cijene"></div></div>`;
+    $("#sim-redovi").append(d); return d;
+  });
+  const maxCijena = SIM_MAX - 1;   // najveće pojedino kopiranje do n = 100 (kod +1)
+  function crtajSim() {
+    const n = sim[0].brojac;
+    $("#sim-n").textContent = n; $("#sim-max").textContent = n >= SIM_MAX ? `(najviše ${SIM_MAX})` : "";
+    $("#sim-1").disabled = $("#sim-10").disabled = n >= SIM_MAX;
+    const kapMax = Math.max(...sim.map(z => z.max)), redova = Math.max(1, Math.ceil(kapMax / PO_REDU));
+    sim.forEach((z, i) => {
+      const d = redovi[i];
+      d.querySelector(".stat").innerHTML =
+        `<dt>kapacitet</dt><dd>${z.max}</dd><dt>slobodno</dt><dd>${z.max - z.brojac}</dd><dt>proširenja</dt><dd>${z.pros}</dd>` +
+        `<dt>kopirano</dt><dd class="jako">${broj(z.kop)}</dd><dt>po elementu</dt><dd class="jako">${n ? broj(z.kop / n, 2) : "–"}</dd>`;
+      const dg = d.querySelector(".dogadjaj");
+      dg.className = "dogadjaj" + (z.svjeze ? " svjez" : "");
+      dg.textContent = z.zadnje ? `Zadnje proširenje ${z.zadnje.od} → ${z.zadnje.na} (${z.zadnje.kad}. dodavanje), kopirano ${z.zadnje.kop}.` : "Još nema proširenja.";
+      // niz: ćelije do kapaciteta
+      const W = 420, s = W / PO_REDU, H = redova * s;
+      const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, class: "grafik", role: "img", "aria-label": `${z.s.ime}: ${z.brojac} elemenata, kapacitet ${z.max}` });
+      for (let j = 0; j < z.max; j++) {
+        const x = (j % PO_REDU) * s, y = Math.floor(j / PO_REDU) * s;
+        if (j < z.brojac) {
+          svg.append(el("rect", { x: x + 1, y: y + 1, width: s - 2, height: s - 2, rx: 2, class: z.svjeze && j < z.zadnje.kop ? "g-kop" : "g-el" }));
+          if (j === z.brojac - 1) svg.append(el("rect", { x: x + 1, y: y + 1, width: s - 2, height: s - 2, rx: 2, class: "g-novi" }));
+        } else svg.append(el("rect", { x: x + 1.5, y: y + 1.5, width: s - 3, height: s - 3, rx: 2, class: "g-prazno" }));
+      }
+      const cn = d.querySelector(".niz"); cn.replaceChildren(svg);
+      // stupci: kopirano pri svakom od SIM_MAX dodavanja
+      const HC = 92, b = W / SIM_MAX, sv = el("svg", { viewBox: `0 0 ${W} ${HC + 14}`, class: "grafik", role: "img", "aria-label": `${z.s.ime}: kopiranja pri svakom dodavanju` });
+      sv.append(el("line", { x1: 0, x2: W, y1: HC, y2: HC, class: "g-os" }));
+      const svjezOd = z.svjeze ? z.zadnje.kad - 1 : -1;
+      z.cijene.forEach((c, j) => {
+        if (c === 0) return;
+        const h = Math.max(1.5, (HC - 2) * c / maxCijena);
+        const r = el("rect", { x: j * b + 0.4, y: HC - h, width: Math.max(1, b - 0.8), height: h, class: "g-stup" + (j === svjezOd ? " svjez" : "") });
+        r.append(el("title", {}, `${j + 1}. dodavanje: kopirano ${c}`)); sv.append(r);
+      });
+      sv.append(el("text", { x: 0, y: HC + 13, class: "g-oznaka" }, "1."));
+      sv.append(el("text", { x: W, y: HC + 13, "text-anchor": "end", class: "g-oznaka" }, `${SIM_MAX}.`));
+      d.querySelector(".cijene").replaceChildren(sv);
+    });
+  }
+  function zaustavi() { if (tajmer) { clearInterval(tajmer); tajmer = null; } $("#sim-auto").setAttribute("aria-pressed", "false"); $("#sim-auto").textContent = "Pokreni"; }
+  $("#sim-1").addEventListener("click", () => simDodaj(1));
+  $("#sim-10").addEventListener("click", () => simDodaj(10));
+  $("#sim-0").addEventListener("click", () => { zaustavi(); simNovo(); crtajSim(); });
+  $("#sim-auto").addEventListener("click", () => {
+    if (tajmer) { zaustavi(); return; }
+    if (sim[0].brojac >= SIM_MAX) { simNovo(); }
+    $("#sim-auto").setAttribute("aria-pressed", "true"); $("#sim-auto").textContent = "Zaustavi";
+    tajmer = setInterval(() => { simDodaj(1); if (sim[0].brojac >= SIM_MAX) zaustavi(); }, 220);
+  });
+  simNovo();
+
+  // ---------------- kopiranja po elementu i slobodna mjesta za n = 10 … 10⁶ (jedan prolaz) ----------------
+  const N_MAX = 1e6, uzorci = new Set();
+  for (let j = 0; j <= 400; j++) uzorci.add(Math.round(10 ** (1 + 5 * j / 400)));
+  function prolaz(s) {
+    let max = 1, b = 0, kop = 0; const po = [], prazno = [];
+    for (let i = 0; i < N_MAX; i++) {
+      let skok = false;
+      if (b === max) { kop += b; max = s.novi(max); skok = true; }
+      b++;
+      if (b >= 10 && (skok || b === max || uzorci.has(b))) { po.push({ x: b, y: kop / b }); prazno.push({ x: b, y: (max - b) / max }); }
+    }
+    return { po, prazno };
+  }
+  const PR = { putaJedanIPo: prolaz(SK.putaJedanIPo), putaDva: prolaz(SK.putaDva) };
+  const najvise = (k, polje) => PR[k][polje].reduce((a, t) => t.y > a.y ? t : a);
+
+  // ---------------- slajd 3: kalkulator ----------------
+  const nIzV = v => Math.round(10 ** (1 + v / 100));
+  const izK = []; // dugmad za n iz mjerenja
+  NJ.forEach(n => {
+    const b = html("button", { type: "button" }, "n = " + nLijepo(n)); b.setAttribute("aria-pressed", "false");
+    b.addEventListener("click", () => { $("#k-n").value = Math.round(100 * (Math.log10(n) - 1)); kalkulator(); });
+    $("#k-izbor").append(b); izK.push([n, b]);
+  });
+  function kalkulator() {
+    const n = nIzV(+$("#k-n").value); $("#k-on").textContent = broj(n);
+    izK.forEach(([m, b]) => b.setAttribute("aria-pressed", m === n));
+    const r = Object.fromEntries(STR.map(s => [s.k, kopiranja(n, s.novi)]));
+    const p1 = r.plusJedan, p15 = r.putaJedanIPo, p2 = r.putaDva;
+    const formula = n * (n - 1) / 2, d15 = p15.kop - 3 * n;
+    const jr = RK.find(x => x.n === n);
+    console.assert(p1.kop === formula, "+1 ne daje n(n − 1)/2");
+    console.assert(p2.kop === 2 ** p2.pros - 1 && p2.kop < 2 * n, "×2 nije 2^k − 1 < 2n");
+    $("#k-racun").innerHTML =
+      `n = ${broj(n)}\n\n` +
+      `+1    kopiranja <b>${broj(p1.kop)}</b>\n` +
+      `      n(n − 1)/2 = ${broj(n)}·${broj(n - 1)}/2 = ${broj(formula)}\n` +
+      `      po elementu ${broj(p1.kop / n, 2)}, proširenja ${broj(p1.pros)}\n` +
+      `      najveće pojedino kopiranje ${broj(p1.najvece)}\n\n` +
+      `×1,5  kopiranja <b>${broj(p15.kop)}</b>\n` +
+      (d15 < 0 ? `      manje od 3n = ${broj(3 * n)}\n` : `      3n + ${broj(d15)}: malo više od 3n (max/2 se zaokružuje naniže)\n`) +
+      `      po elementu ${broj(p15.kop / n, 2)}, proširenja ${broj(p15.pros)}\n` +
+      `      najveće pojedino kopiranje ${broj(p15.najvece)}\n\n` +
+      `×2    kopiranja <b>${broj(p2.kop)}</b>\n` +
+      `      2${nadeksi(p2.pros)} − 1, manje od 2n = ${broj(2 * n)}\n` +
+      `      po elementu ${broj(p2.kop / n, 2)}, proširenja ${broj(p2.pros)}\n` +
+      `      najveće pojedino kopiranje ${broj(p2.najvece)}\n\n` +
+      (jr ? (provjera[n] ? `<span class="da">C++ program za n = ${broj(n)}: isti brojevi ✓</span>` : `<span class="ne">C++ program za n = ${broj(n)}: razlika!</span>`)
+          : `C++ program je računao za n = ${NJ.map(nLijepo).join(", ")}`);
+    grafik("#k-graf", {
+      serije: ["putaJedanIPo", "putaDva"].map(k => ({ kl: SK[k].kl, ime: SK[k].ime, bezTacaka: true, tacke: PR[k].po })),
+      oznake: RK.flatMap(x => ["putaJedanIPo", "putaDva"].map(k => ({ x: x.n, y: x[k] / x.n, kl: SK[k].kl, r: 3.5, nap: `C++, n = ${broj(x.n)}, ${SK[k].ime}: ${broj(x[k])} kopiranja, ${broj(x[k] / x.n, 2)} po elementu` })))
+        .concat(["putaJedanIPo", "putaDva"].map(k => ({ x: n, y: r[k].kop / n, kl: SK[k].kl, r: 6, nap: `n = ${broj(n)}, ${SK[k].ime}: ${broj(r[k].kop / n, 2)} po elementu` }))),
+      xLog: true, x0: 10, x1: N_MAX, y0: 0, y1: 3.5, yTicks: [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5], xTicks: [10, 100, 1e3, 1e4, 1e5, 1e6], xRijetko: true,
+      fx: nLijepo, fy: v => broj(v, Number.isInteger(v) ? 0 : 1), vx: n, imena: true,
+      ref: [{ v: 2, tekst: "2" }, { v: 3, tekst: "3" }],
+      xNaslov: "broj dodavanja n (logaritamska osa)", yNaslov: "kopiranja po elementu (ukupno / n)",
+      opis: "Kopiranja po elementu za ×1,5 i ×2 u zavisnosti od n"
+    });
+    const m15 = najvise("putaJedanIPo", "po"), m2 = najvise("putaDva", "po");
+    $("#k-potpis").textContent = `+1 nije na grafikonu: kod njega je po elementu (n − 1)/2, za n = ${broj(n)} to je ${broj(p1.kop / n, 1)}. ` +
+      `Za n do ${nLijepo(N_MAX)} kod ×2 najviše ${broj(dolje3(m2.y), 3)} (n = ${broj(m2.x)}; uvijek manje od 2), kod ×1,5 najviše ${broj(dolje3(m15.y), 3)} (n = ${broj(m15.x)}). ` +
+      `Skok je odmah nakon proširenja, a zatim vrijednost pada dok se niz puni.`;
+  }
+  $("#k-n").addEventListener("input", kalkulator);
+
+  // ---------------- slajd 4: izmjereno vrijeme ----------------
+  const BUILD = { release: D.release, debug: D.debug };
+  let build = "release", logSkala = false;
+  function dugmad(cilj, stavke, aktivna, promjena) {
+    const c = $(cilj);
+    stavke.forEach(([k, t]) => {
+      const b = html("button", { type: "button" }, t); b.setAttribute("aria-pressed", k === aktivna);
+      b.addEventListener("click", () => { [...c.children].forEach(d => d.setAttribute("aria-pressed", d === b)); promjena(k); });
+      c.append(b);
+    });
+  }
+  dugmad("#v-build", [["release", "Release"], ["debug", "Debug"]], build, k => { build = k; vrijeme(); });
+  dugmad("#v-skala", [["obicna", "obična skala"], ["log", "logaritamska skala"]], "obicna", k => { logSkala = k === "log"; vrijeme(); });
+  function vrijeme() {
+    const B = BUILD[build], RV = B.rastVrijeme, NN = RV.map(r => r.n), nK = NN[NN.length - 1], zadnji = RV[RV.length - 1];
+    const ser = STR.map(s => ({ kl: s.kl, ime: s.ime, tacke: RV.map(r => ({ x: r.n, y: r[s.k].med, lo: r[s.k].min, hi: r[s.k].max,
+      nap: `${s.ime}, n = ${broj(r.n)}: medijan ${ms(r[s.k].med)} ms (od ${ms(r[s.k].min)} do ${ms(r[s.k].max)})` })) }));
+    const c2 = zadnji.plusJedan.med / (nK * nK);
+    const kvad = [];
+    for (let j = 0; j <= 40; j++) { const x = logSkala ? NN[0] * (nK / NN[0]) ** (j / 40) : NN[0] + (nK - NN[0]) * j / 40; kvad.push({ x, y: c2 * x * x }); }
+    ser.push({ kl: "c-ref", crtkano: true, bezTacaka: true, tacke: kvad });
+    const sve = RV.flatMap(r => STR.flatMap(s => [r[s.k].min, r[s.k].max]));
+    let o;
+    if (logSkala) {
+      const y0 = 10 ** Math.floor(Math.log10(Math.min(...sve))), y1 = 10 ** Math.ceil(Math.log10(Math.max(...sve)));
+      o = { xLog: true, yLog: true, x0: NN[0], x1: nK, y0, y1, xTicks: NN, yTicks: potencije(y0, y1), fy: v => v < 1 ? broj(v, Math.round(-Math.log10(v))) : broj(v), xNaslov: "broj dodavanja n (logaritamska osa)" };
+    } else {
+      const m = Math.max(...sve), k = lijepKorak(m), y1 = Math.ceil(m / k) * k, yt = [];
+      for (let v = 0; v <= y1 + 1e-9; v += k) yt.push(v);
+      o = { x0: 0, x1: nK, y0: 0, y1, xTicks: [0, 1, 2, 3, 4].map(j => j * nK / 4), yTicks: yt, fy: v => broj(v), xNaslov: "broj dodavanja n" };
+    }
+    grafik("#v-graf", Object.assign(o, { serije: ser, xRijetko: true, imena: true, yNaslov: `vrijeme, ms (${build === "release" ? "Release" : "Debug"})`,
+      opis: "Izmjereno vrijeme n dodavanja za tri strategije rasta" }));
+    const odnos = dvijeCifre(zadnji.plusJedan.med / zadnji.putaDva.med), odnos15 = dvijeCifre(zadnji.plusJedan.med / zadnji.putaJedanIPo.med);
+    $("#v-naslov").textContent = `Za n = ${broj(nK)}: +1 traje ${ms(zadnji.plusJedan.med)} ms, a ×2 ${ms(zadnji.putaDva.med)} ms`;
+    $("#v-uvod").textContent = `Program alocira novi niz i kopira elemente kao prosiriListu (početni kapacitet 1). ${D.ponavljanja} ponavljanja za svako n; ` +
+      `linija je medijan, pojas je raspon od najmanjeg do najvećeg vremena. ${B.build}. Računar: ${D.racunar}.`;
+    $("#v-potpis").textContent = (logSkala
+      ? "Na logaritamskoj skali kvadratni rast je pravac nagiba 2 (isprekidana linija), a linearni pravac nagiba 1. "
+      : `Na običnoj skali ×1,5 i ×2 leže na nuli: za n = ${broj(nK)} ×2 je oko ${broj(odnos)} puta, a ×1,5 oko ${broj(odnos15)} puta brži od +1 (medijani). `) +
+      "Tačke nose tačnu vrijednost (zadržite pokazivač iznad tačke).";
+    const t = $("#v-tabela"); t.replaceChildren();
+    t.append(html("tr", { innerHTML: "<th>n</th>" + STR.map(s => `<th><i class="boja ${s.kl}"></i>${s.ime}</th>`).join("") + "<th>+1 / ×2</th>" }));
+    RV.forEach(r => t.append(html("tr", { innerHTML: `<td>${broj(r.n)}</td>` + STR.map(s => `<td>${ms(r[s.k].med)}</td>`).join("") + `<td>${broj(r.plusJedan.med / r.putaDva.med)}</td>` })));
+    const omjeri = k => RV.slice(1).map((r, j) => r[k].med / RV[j][k].med);
+    const lista = k => omjeri(k).map(v => broj(v, 1)).join(" · ");
+    const o1 = omjeri("plusJedan");
+    $("#v-omjeri").innerHTML = `Omjer t(2n) / t(n) po koracima n = ${NN.map(n => broj(n)).join(", ")}:<br>` +
+      `<b>+1:</b> ${lista("plusJedan")}<br><b>×1,5:</b> ${lista("putaJedanIPo")}<br><b>×2:</b> ${lista("putaDva")}<br>` +
+      `Kod kvadratnog rasta omjer je oko 4, kod linearnog oko 2. Kod +1 su zadnji omjeri ${broj(o1[o1.length - 2], 1)} i ${broj(o1[o1.length - 1], 1)}. ` +
+      `Vremena za ×1,5 i ×2 su manja od 1 ms, pa su njihovi omjeri nestabilni (širok pojas), ali su i za najveće n daleko ispod vremena za +1.`;
+  }
+
+  // ---------------- slajd 5: slobodna mjesta ----------------
+  function prostor() {
+    grafik("#p-graf", {
+      serije: ["putaJedanIPo", "putaDva"].map(k => ({ kl: SK[k].kl, ime: SK[k].ime, bezTacaka: true, tacke: PR[k].prazno })),
+      oznake: RK.flatMap(x => ["putaJedanIPo", "putaDva"].map(k => { const kap = x[SK[k].kap];
+        return { x: x.n, y: (kap - x.n) / kap, kl: SK[k].kl, r: 3.5, nap: `C++, n = ${broj(x.n)}, ${SK[k].ime}: kapacitet ${broj(kap)}, slobodno ${broj(kap - x.n)} (${pct((kap - x.n) / kap)})` }; })),
+      xLog: true, x0: 10, x1: N_MAX, y0: 0, y1: 0.5, yTicks: [0, 0.1, 0.2, 0.3, 0.4, 0.5], xTicks: [10, 100, 1e3, 1e4, 1e5, 1e6], xRijetko: true,
+      fx: nLijepo, fy: v => pct(v, 0), imena: true,
+      xNaslov: "broj elemenata n (logaritamska osa)", yNaslov: "slobodna mjesta / kapacitet",
+      opis: "Udio slobodnih mjesta u kapacitetu za ×1,5 i ×2"
+    });
+    const m15 = najvise("putaJedanIPo", "prazno"), m2 = najvise("putaDva", "prazno");
+    $("#p-potpis").textContent = `Najveći udio slobodnih mjesta za n do ${nLijepo(N_MAX)}: ×2 ${pct(dolje3(m2.y))} (n = ${broj(m2.x)}), ` +
+      `×1,5 ${pct(dolje3(m15.y))} (n = ${broj(m15.x)}). Odmah nakon proširenja ×2 ostavlja skoro pola niza praznim, a ×1,5 oko trećine.`;
+    const t = $("#p-tabela"); t.replaceChildren();
+    t.append(html("tr", { innerHTML: `<th>n</th><th>kap. ×1,5</th><th>slobodno</th><th>kap. ×2</th><th>slobodno</th>` }));
+    RK.forEach(x => t.append(html("tr", { innerHTML: `<td>${broj(x.n)}</td><td>${broj(x.kapJedanIPo)}</td><td>${broj(x.kapJedanIPo - x.n)}</td>` +
+      `<td>${broj(x.kapDva)}</td><td>${broj(x.kapDva - x.n)}</td>` })));
+    const manje = RK.filter(x => x.kapJedanIPo - x.n > x.kapDva - x.n).map(x => broj(x.n));
+    const r1 = RK.find(x => x.n === 1000);
+    $("#p-tabela-potpis").textContent = manje.length
+      ? `Za n = ${manje.join(", ")} ×1,5 ostavlja više slobodnih mjesta od ×2${r1 && manje.includes(broj(1000)) ? ` (n = 1.000: ${r1.kapJedanIPo - 1000} prema ${r1.kapDva - 1000})` : ""}. ` +
+        "Koji niz je u datom trenutku prazniji zavisi od toga gdje n pada između dva proširenja, pa nekoliko tačaka može zavarati. Razlika je u najvećem udjelu (grafikon): ×2 do skoro 50 %, ×1,5 do oko 33 %."
+      : "";
+    // std::vector
+    const V = D.vectorKapacitet, sim15 = [1]; while (sim15.length < V.length - 1) sim15.push(SK.putaJedanIPo.novi(sim15[sim15.length - 1]));
+    const isti = V.slice(1).every((v, i) => v === sim15[i]);
+    console.assert(isti, "vectorKapacitet nije isti niz kao ×1,5");
+    $("#p-vector-uvod").textContent = `Program je pozvao push_back 1.000 puta i zapisivao kapacitet svaki put kad se promijeni. Prevodilac: ${D.racunar.split(",").find(s => s.includes("MSVC")).trim()}.`;
+    $("#p-vector").replaceChildren(...V.map(v => html("span", {}, broj(v))));
+    const zadnja = V.slice(-2);
+    $("#p-vector-zakljucak").textContent = (isti ? `Od kapaciteta 1 nadalje to je isti niz kao ×1,5 iz Analiza.h (max + max/2). ` : "") +
+      `Zadnji korak: ${broj(zadnja[0])} → ${broj(zadnja[1])}, omjer ${broj(zadnja[1] / zadnja[0], 3)}. ` +
+      `Ovo je izmjereno ponašanje MSVC-a; standard C++ propisuje da push_back u prosjeku bude konstantan, a faktor rasta ne propisuje.`;
+  }
+
+  // ---------------- slajd 6: pitanja ----------------
+  {
+    const n = 17, a = kopiranja(n, SK.putaDva.novi), b = kopiranja(n, SK.plusJedan.novi);
+    $("#q1").textContent = `Početni kapacitet je 1. Koliko se elemenata ukupno kopira za n = ${n} dodavanja uz ×2, a koliko uz +1? Koliko kopira najskuplje pojedino dodavanje kod ×2?`;
+    const niz = []; for (let c = 1; c < n; c *= 2) niz.push(c);
+    $("#o1").textContent = `×2: proširenja su pri kapacitetu ${niz.join(", ")}, pa je kopirano ${niz.join(" + ")} = ${a.kop} (manje od 2n = ${2 * n}). ` +
+      `Najskuplje je ${n}. dodavanje: kopira ${a.najvece} elemenata. +1: 1 + 2 + … + ${n - 1} = n(n − 1)/2 = ${b.kop}.`;
+    const m = 1e6, d = kopiranja(m, SK.putaDva.novi);
+    $("#o2").textContent = `Zbog prosjeka po svim dodavanjima. Kod ×2 skupa proširenja su rijetka: nakon proširenja na kapacitet 2k slijedi oko k jeftinih dodavanja ` +
+      `prije sljedećeg. Za n = ${broj(m)} ukupno je ${broj(d.kop)} kopiranja (najveće pojedino ${broj(d.najvece)}), dakle ${broj(d.kop / m, 2)} po dodavanju, ` +
+      `plus jedan upis. Pojedino dodavanje je u najgorem slučaju O(n), a u prosjeku O(1). Takav račun se zove amortizovana analiza.`;
+    const novi100 = mx => mx + 100, e = kopiranja(m, novi100), f = kopiranja(m, SK.plusJedan.novi);
+    $("#q3").textContent = "Zašto rast za stalan broj mjesta, na primjer +100, ne rješava problem rasta +1?";
+    $("#o3").textContent = `Proširenja su sada svakih 100 dodavanja, ali svako i dalje kopira sve dosadašnje elemente: 1, 101, 201, … ` +
+      `Za n = ${broj(m)} to je ${broj(e.kop)} kopiranja, oko n²/200, dakle i dalje kvadratno. To je oko ${broj(f.kop / e.kop)} puta manje od +1 (${broj(f.kop)}), ` +
+      `ali ${broj(e.kop / d.kop)} puta više od ×2 (${broj(d.kop)}). Pomaže samo rast proporcionalan veličini niza (×1,5, ×2). ` +
+      `Brojke je izračunao web preglednik istom petljom kao kopiranjaPriRastu, s pravilom max + 100.`;
+    $("#izvor").textContent = `Izvor brojki: kopiranja, kapaciteti i std::vector iz programa ${D.program} (${D.datum}), vrijeme ${D.ponavljanja} ponavljanja, ` +
+      `${D.release.build} i ${D.debug.build}, računar: ${D.racunar}. Simulacija i kalkulator računaju u web pregledniku istim pravilima kao Analiza.h.`;
+  }
+
+  function crtajVidljivo() { crtajSim(); kalkulator(); vrijeme(); prostor(); }
+  Prezentacija("v04-rast-niza", crtajVidljivo);
+})();
+</script>
+</body>
+</html>
