@@ -1,4 +1,5 @@
 # Strukture podataka i algoritmi 2026/27: materijali s vježbi
+https://adil-fit-ba.github.io/spa-2026-27/
 
 FIT UNMO. Kopije gotovih izlaza; izvor je u OneDrive projektu (`_2 ASP/2026_27/vjezbe/Vxx-*/`).
 
